@@ -113,25 +113,25 @@ service cloud.firestore {
 
     // Eco Activities Catalog
     match /ecoActivities/{activityId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // Environmental Challenges Catalog
     match /challenges/{challengeId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // Achievement & Badge Definitions
     match /achievements/{achievementId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // System-Wide Announcements
     match /announcements/{announcementId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
