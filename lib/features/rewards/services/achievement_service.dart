@@ -28,6 +28,46 @@ class AchievementService {
           String userId) =>
       _firestore.collection('users').doc(userId).collection('achievements');
 
+  /// Default real achievements fallback
+  static final List<AchievementModel> defaultAchievements = [
+    AchievementModel(
+      id: 'ach_first_step',
+      title: 'First Green Step',
+      description: 'Complete your first eco-friendly action.',
+      requirementType: 'first_activity',
+      requirementValue: 1,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    AchievementModel(
+      id: 'ach_eco_century',
+      title: 'Eco Century',
+      description: 'Earn a total of 100 Eco Points.',
+      requirementType: 'points_reached',
+      requirementValue: 100,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    AchievementModel(
+      id: 'ach_waste_warrior',
+      title: 'Waste Warrior',
+      description: 'Log 5 waste reduction activities.',
+      requirementType: 'category_activity_count',
+      requirementValue: 5,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    AchievementModel(
+      id: 'ach_champion',
+      title: 'Eco Champion',
+      description: 'Complete 10 total eco activities.',
+      requirementType: 'activity_count',
+      requirementValue: 10,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+  ];
+
   /// Fetches all active achievements from Cloud Firestore
   Future<List<AchievementModel>> fetchActiveAchievements() async {
     try {
@@ -35,11 +75,15 @@ class AchievementService {
           .where('isActive', isEqualTo: true)
           .get();
 
+      if (querySnapshot.docs.isEmpty) {
+        return defaultAchievements;
+      }
+
       return querySnapshot.docs
           .map((doc) => AchievementModel.fromFirestore(doc))
           .toList();
-    } catch (e) {
-      throw Exception('Failed to fetch achievements from database: $e');
+    } catch (_) {
+      return defaultAchievements;
     }
   }
 
@@ -48,11 +92,11 @@ class AchievementService {
     try {
       final doc = await _achievementsCollection.doc(id).get();
       if (!doc.exists || doc.data() == null) {
-        return null;
+        return defaultAchievements.where((a) => a.id == id).firstOrNull;
       }
       return AchievementModel.fromFirestore(doc);
-    } catch (e) {
-      throw Exception('Failed to fetch achievement details: $e');
+    } catch (_) {
+      return defaultAchievements.where((a) => a.id == id).firstOrNull;
     }
   }
 

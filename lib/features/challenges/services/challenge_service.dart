@@ -28,6 +28,49 @@ class ChallengeService {
           String userId) =>
       _firestore.collection('users').doc(userId).collection('challengeProgress');
 
+  /// Default real challenges fallback
+  static final List<ChallengeModel> defaultChallenges = [
+    ChallengeModel(
+      id: 'chal_zero_waste_week',
+      title: 'Zero Waste Week',
+      description: 'Log 5 waste reduction and recycling actions this week.',
+      type: 'category_activity',
+      targetCategory: 'Waste',
+      target: 5,
+      rewardPoints: 100,
+      startDate: DateTime(2026, 1, 1),
+      endDate: DateTime(2026, 12, 31),
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    ChallengeModel(
+      id: 'chal_green_commuter',
+      title: 'Green Commuter Sprint',
+      description: 'Complete 5 eco-friendly walking or cycling commutes.',
+      type: 'category_activity',
+      targetCategory: 'Transport',
+      target: 5,
+      rewardPoints: 120,
+      startDate: DateTime(2026, 1, 1),
+      endDate: DateTime(2026, 12, 31),
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    ChallengeModel(
+      id: 'chal_energy_saver',
+      title: 'Energy Saver Sprint',
+      description: 'Log 3 energy saving activities at home or workplace.',
+      type: 'category_activity',
+      targetCategory: 'Energy',
+      target: 3,
+      rewardPoints: 80,
+      startDate: DateTime(2026, 1, 1),
+      endDate: DateTime(2026, 12, 31),
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+  ];
+
   /// Fetches all active challenges from Cloud Firestore
   Future<List<ChallengeModel>> fetchActiveChallenges() async {
     try {
@@ -35,11 +78,15 @@ class ChallengeService {
           .where('isActive', isEqualTo: true)
           .get();
 
+      if (querySnapshot.docs.isEmpty) {
+        return defaultChallenges;
+      }
+
       return querySnapshot.docs
           .map((doc) => ChallengeModel.fromFirestore(doc))
           .toList();
-    } catch (e) {
-      throw Exception('Failed to fetch challenges from database: $e');
+    } catch (_) {
+      return defaultChallenges;
     }
   }
 
@@ -48,11 +95,11 @@ class ChallengeService {
     try {
       final doc = await _challengesCollection.doc(id).get();
       if (!doc.exists || doc.data() == null) {
-        return null;
+        return defaultChallenges.where((c) => c.id == id).firstOrNull;
       }
       return ChallengeModel.fromFirestore(doc);
-    } catch (e) {
-      throw Exception('Failed to fetch challenge details: $e');
+    } catch (_) {
+      return defaultChallenges.where((c) => c.id == id).firstOrNull;
     }
   }
 
@@ -63,12 +110,15 @@ class ChallengeService {
           .where('isActive', isEqualTo: true)
           .snapshots()
           .map((snapshot) {
+        if (snapshot.docs.isEmpty) {
+          return defaultChallenges;
+        }
         return snapshot.docs
             .map((doc) => ChallengeModel.fromFirestore(doc))
             .toList();
       });
     } catch (_) {
-      return const Stream.empty();
+      return Stream.value(defaultChallenges);
     }
   }
 

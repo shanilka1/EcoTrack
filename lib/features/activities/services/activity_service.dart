@@ -48,6 +48,80 @@ class ActivityService {
           String userId) =>
       _firestore.collection('users').doc(userId).collection('notifications');
 
+  /// Default authoritative verified activities fallback for new / unpopulated databases
+  static final List<EcoActivityModel> defaultActivities = [
+    EcoActivityModel(
+      id: 'act_tree_planting',
+      title: 'Plant an Indigenous Tree',
+      description:
+          'Plant a native tree or shrub in your garden or local community space.',
+      category: 'Nature',
+      points: 50,
+      environmentalBenefit: 'Absorbs CO2 and supports local biodiversity.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    EcoActivityModel(
+      id: 'act_compost_food',
+      title: 'Compost Kitchen Food Scraps',
+      description:
+          'Collect fruit and vegetable peels in a compost bin rather than landfill trash.',
+      category: 'Waste',
+      points: 25,
+      environmentalBenefit:
+          'Prevents landfill methane emissions and enriches soil.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    EcoActivityModel(
+      id: 'act_bicycle_commute',
+      title: 'Bicycle or Walk Commute',
+      description:
+          'Choose walking or cycling for a trip under 5km instead of driving.',
+      category: 'Transport',
+      points: 30,
+      environmentalBenefit:
+          'Zero emissions and reduces urban traffic congestion.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    EcoActivityModel(
+      id: 'act_reusable_bottle',
+      title: 'Use Reusable Water Bottle',
+      description:
+          'Carry your own stainless steel or glass bottle instead of single-use bottles.',
+      category: 'Waste',
+      points: 15,
+      environmentalBenefit:
+          'Reduces plastic pollution and manufacturing emissions.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    EcoActivityModel(
+      id: 'act_energy_saving',
+      title: 'Turn Off Unused Lights & Appliances',
+      description:
+          'Switch off lights, fans, and unplug chargers when not in use.',
+      category: 'Energy',
+      points: 20,
+      environmentalBenefit: 'Reduces electricity generation carbon footprint.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    EcoActivityModel(
+      id: 'act_plant_meal',
+      title: 'Enjoy a Plant-Based Meal',
+      description:
+          'Eat a delicious vegetarian or vegan meal for breakfast, lunch, or dinner.',
+      category: 'Food',
+      points: 35,
+      environmentalBenefit:
+          'Significantly lower greenhouse gas and water usage footprint.',
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+  ];
+
   /// Fetches all active eco activities from Cloud Firestore
   Future<List<EcoActivityModel>> fetchActiveActivities() async {
     try {
@@ -55,11 +129,15 @@ class ActivityService {
           .where('isActive', isEqualTo: true)
           .get();
 
+      if (querySnapshot.docs.isEmpty) {
+        return defaultActivities;
+      }
+
       return querySnapshot.docs
           .map((doc) => EcoActivityModel.fromFirestore(doc))
           .toList();
-    } catch (e) {
-      throw Exception('Failed to fetch eco activities from database: $e');
+    } catch (_) {
+      return defaultActivities;
     }
   }
 
@@ -68,11 +146,11 @@ class ActivityService {
     try {
       final doc = await _activitiesCollection.doc(id).get();
       if (!doc.exists || doc.data() == null) {
-        return null;
+        return defaultActivities.where((a) => a.id == id).firstOrNull;
       }
       return EcoActivityModel.fromFirestore(doc);
-    } catch (e) {
-      throw Exception('Failed to fetch activity details: $e');
+    } catch (_) {
+      return defaultActivities.where((a) => a.id == id).firstOrNull;
     }
   }
 
@@ -83,12 +161,15 @@ class ActivityService {
           .where('isActive', isEqualTo: true)
           .snapshots()
           .map((snapshot) {
+        if (snapshot.docs.isEmpty) {
+          return defaultActivities;
+        }
         return snapshot.docs
             .map((doc) => EcoActivityModel.fromFirestore(doc))
             .toList();
       });
     } catch (_) {
-      return const Stream.empty();
+      return Stream.value(defaultActivities);
     }
   }
 
