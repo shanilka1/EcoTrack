@@ -1,0 +1,52 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ============================================================================
+    // HELPER SECURITY FUNCTIONS
+    // ============================================================================
+
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.role == 'admin') ||
+        (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024 // Max 5MB
+          && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
+    }
+
+    // ============================================================================
+    // STORAGE PATH PERMISSIONS
+    // ============================================================================
+
+    // 1. User Profile Photos & Avatars
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImage();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // 2. Administrative App Assets & Icons
+    match /assets/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isAdmin() && isValidImage();
+    }
+
+    // 3. Catch-all deny for any other file path
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

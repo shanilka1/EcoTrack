@@ -2,94 +2,142 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ============================================================================
+    // HELPER SECURITY FUNCTIONS
+    // ============================================================================
+
+    /// Checks if request is originating from an authenticated session
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid != null;
     }
 
+    /// Verifies that the authenticated user owns the targeted resource
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    /// Authoritative admin verification via Firestore user profile or Firebase custom claim
     function isAdmin() {
-      return isAuthenticated() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && (
+        (request.auth.token.role == 'admin') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
-    // Rules for Users Collection & Subcollections
+    /// Validates normal user profile updates (strictly prevents tampering with sensitive fields)
+    function isSafeUserProfileUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'uid',
+        'role',
+        'createdAt'
+      ]);
+    }
+
+    /// Validates notification updates by owner (only read status changes allowed)
+    function isSafeNotificationUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    }
+
+    // ============================================================================
+    // USERS COLLECTION & SUBCOLLECTIONS
+    // ============================================================================
+
     match /users/{userId} {
-      // Allow reading user public profile if authenticated
+      // Authenticated users can read directory/profiles for leaderboard and social features
       allow read: if isAuthenticated();
-      
-      // Allow creating user upon registration
-      allow create: if isOwner(userId);
-      
-      // Allow updating profile (normal users cannot change role)
-      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])))
-                    || isAdmin();
+
+      // User document creation upon registration: must be self-owned with default role 'user'
+      allow create: if isOwner(userId) &&
+        request.resource.data.uid == userId &&
+        (request.resource.data.role == 'user' || isAdmin()) &&
+        request.resource.data.ecoPoints >= 0 &&
+        request.resource.data.level >= 1;
+
+      // Profile updates: safe non-sensitive field updates for owner, or full administrative control
+      allow update: if (isOwner(userId) && isSafeUserProfileUpdate()) || isAdmin();
+
+      // Account deletion: Admins only
       allow delete: if isAdmin();
 
-      // Completed Activities Subcollection
+      // 1. Completed Activities Subcollection (Audit Log)
       match /completedActivities/{completionId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId)
-                      && request.resource.data.userId == userId
-                      && request.resource.data.pointsAwarded > 0;
-        allow update, delete: if isAdmin();
-      }
-
-      // Challenge Progress Subcollection
-      match /challengeProgress/{challengeId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow create, update: if isOwner(userId)
-                              && request.resource.data.userId == userId;
+        allow create: if isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.pointsAwarded is int &&
+          request.resource.data.pointsAwarded > 0 &&
+          request.resource.data.activityId is string &&
+          request.resource.data.activityId.size() > 0;
+        allow update: if false; // Immutable audit log
         allow delete: if isAdmin();
       }
 
-      // Achievements Subcollection
-      match /achievements/{achievementId} {
+      // 2. Challenge Progress Subcollection
+      match /challengeProgress/{challengeId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId)
-                      && request.resource.data.userId == userId;
-        allow update, delete: if isAdmin();
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.progress is int &&
+          request.resource.data.progress >= 0;
+        allow delete: if isAdmin();
       }
 
-      // Notifications Subcollection
+      // 3. Unlocked Achievements Subcollection
+      match /unlockedAchievements/{achievementId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.achievementId is string;
+        allow update: if false; // Badges are immutable once awarded
+        allow delete: if isAdmin();
+      }
+
+      // 4. Notifications Subcollection
       match /notifications/{notificationId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) || isAdmin();
-        allow update: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) && request.resource.data.userId == userId) || isAdmin();
+        allow update: if (isOwner(userId) && isSafeNotificationUpdate()) || isAdmin();
         allow delete: if isOwner(userId) || isAdmin();
       }
 
-      // User Settings Subcollection
+      // 5. User Settings / Preferences
       match /settings/{settingId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Rules for Eco Activities Collection
+    // ============================================================================
+    // GLOBAL PUBLIC COLLECTIONS (Admin-Managed Only)
+    // ============================================================================
+
+    // Eco Activities Catalog
     match /ecoActivities/{activityId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
-    // Rules for Challenges Collection
+    // Environmental Challenges Catalog
     match /challenges/{challengeId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
-    // Rules for Achievements Collection
+    // Achievement & Badge Definitions
     match /achievements/{achievementId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
-    // Rules for Announcements Collection
+    // System-Wide Announcements
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
+    }
+
+    // Catch-all deny for any other collection
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
