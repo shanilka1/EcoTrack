@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
 /// Centralized route definitions and route generator for navigation
@@ -22,7 +23,13 @@ class AppRoutes {
     switch (settings.name) {
       case splash:
         return MaterialPageRoute(
-          builder: (_) => const SplashScreen(),
+          builder: (_) => const SplashScreen(autoNavigate: true),
+          settings: settings,
+        );
+
+      case onboarding:
+        return MaterialPageRoute(
+          builder: (_) => const OnboardingScreen(),
           settings: settings,
         );
 
