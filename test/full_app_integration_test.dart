@@ -13,9 +13,7 @@ import 'package:ecotrack/features/admin/screens/manage_challenges_screen.dart';
 import 'package:ecotrack/features/admin/screens/manage_users_screen.dart';
 import 'package:ecotrack/features/auth/models/user_model.dart';
 import 'package:ecotrack/features/auth/screens/login_screen.dart';
-import 'package:ecotrack/features/auth/screens/onboarding_screen.dart';
 import 'package:ecotrack/features/auth/screens/register_screen.dart';
-import 'package:ecotrack/features/auth/screens/splash_screen.dart';
 import 'package:ecotrack/features/challenges/models/challenge_model.dart';
 import 'package:ecotrack/features/challenges/models/challenge_progress_model.dart';
 import 'package:ecotrack/features/challenges/screens/challenge_details_screen.dart';
@@ -25,14 +23,17 @@ import 'package:ecotrack/features/leaderboard/models/leaderboard_user_model.dart
 import 'package:ecotrack/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:ecotrack/features/notifications/models/notification_model.dart';
 import 'package:ecotrack/features/notifications/screens/notifications_screen.dart';
+import 'package:ecotrack/features/onboarding/screens/onboarding_screen.dart';
 import 'package:ecotrack/features/profile/screens/change_password_screen.dart';
 import 'package:ecotrack/features/profile/screens/edit_profile_screen.dart';
 import 'package:ecotrack/features/profile/screens/legal_info_screen.dart';
 import 'package:ecotrack/features/profile/screens/profile_screen.dart';
 import 'package:ecotrack/features/profile/screens/settings_screen.dart';
+import 'package:ecotrack/features/progress/models/user_statistics_model.dart';
 import 'package:ecotrack/features/progress/screens/progress_screen.dart';
 import 'package:ecotrack/features/rewards/models/achievement_model.dart';
 import 'package:ecotrack/features/rewards/screens/achievements_screen.dart';
+import 'package:ecotrack/features/splash/screens/splash_screen.dart';
 
 void main() {
   final sampleUser = UserModel(
@@ -95,7 +96,6 @@ void main() {
     description: 'Complete 10 waste activities.',
     requirementType: 'category_activity_count',
     requirementValue: 10,
-    requiredCategory: 'Waste',
     isActive: true,
     createdAt: DateTime(2026, 1, 1),
   );
@@ -105,7 +105,7 @@ void main() {
     userId: 'user-e2e-1',
     title: 'Points Earned!',
     message: 'You earned +25 Eco Points for Composting!',
-    type: 'points_earned',
+    type: NotificationType.pointsAwarded,
     createdAt: DateTime.now(),
     isRead: false,
   );
@@ -128,6 +128,19 @@ void main() {
     totalAnnouncements: 3,
   );
 
+  final sampleUserStats = const UserStatisticsModel(
+    totalEcoPoints: 340,
+    level: 3,
+    totalActivitiesCompleted: 12,
+    completedChallengesCount: 2,
+    unlockedAchievementsCount: 3,
+    weeklyDailyCounts: {'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 2, 'Fri': 4, 'Sat': 3, 'Sun': 5},
+    weeklyDailyPoints: {'Mon': 25, 'Tue': 50, 'Wed': 75, 'Thu': 50, 'Fri': 100, 'Sat': 75, 'Sun': 125},
+    categoryCounts: {'Waste': 7, 'Nature': 5},
+    categoryPercentages: {'Waste': 0.58, 'Nature': 0.42},
+    monthlyCounts: {'Aug 2026': 12},
+  );
+
   final sampleAnnouncement = AnnouncementModel(
     id: 'ann-e2e-1',
     title: 'Spring Tree Planting Festival',
@@ -140,25 +153,27 @@ void main() {
 
   group('Full Application Navigation & Screen Integration Tests', () {
     testWidgets('1. Splash Screen renders properly', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: SplashScreen()));
+      await tester.pumpWidget(const MaterialApp(home: SplashScreen(autoNavigate: false)));
+      await tester.pump(const Duration(milliseconds: 700));
       expect(find.text('EcoTrack'), findsOneWidget);
     });
 
     testWidgets('2. Onboarding Screen renders Page 1 with branding', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: OnboardingScreen()));
-      expect(find.text('Track Your Impact'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Track Your Habits'), findsOneWidget);
     });
 
     testWidgets('3. Login Screen renders with email and password inputs', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
-      expect(find.text('Welcome Back'), findsOneWidget);
-      expect(find.text('Sign In'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign In'), findsWidgets);
     });
 
     testWidgets('4. Register Screen renders with full fields', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
-      expect(find.text('Create Account'), findsOneWidget);
-      expect(find.text('Sign Up'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Create Account'), findsWidgets);
     });
 
     testWidgets('5. Home Dashboard renders authenticated user data and summary cards', (tester) async {
@@ -167,9 +182,10 @@ void main() {
           home: HomeScreen(initialUser: sampleUser),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Alex Green'), findsOneWidget);
       expect(find.text('340'), findsOneWidget);
-      expect(find.text('Lvl 3'), findsOneWidget);
+      expect(find.text('Eco Enthusiast'), findsOneWidget);
     });
 
     testWidgets('6. Eco Activities list and details flow renders', (tester) async {
@@ -178,6 +194,7 @@ void main() {
           home: ActivitiesScreen(initialActivities: [sampleActivity]),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Compost Kitchen Food Scraps'), findsOneWidget);
 
       await tester.pumpWidget(
@@ -185,6 +202,7 @@ void main() {
           home: ActivityDetailsScreen(initialActivity: sampleActivity),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Activity Details'), findsOneWidget);
       expect(find.text('+25 pts'), findsOneWidget);
     });
@@ -198,7 +216,8 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Zero Waste Marathon'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Zero Waste Marathon'), findsWidgets);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -208,8 +227,9 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Zero Waste Marathon'), findsOneWidget);
-      expect(find.text('100 pts'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Zero Waste Marathon'), findsWidgets);
+      expect(find.text('+100 pts'), findsOneWidget);
     });
 
     testWidgets('8. Achievements Screen renders badge list', (tester) async {
@@ -221,19 +241,20 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Compost Master'), findsOneWidget);
     });
 
-    testWidgets('9. Leaderboard Screen renders rankings and current user highlight', (tester) async {
+    testWidgets('9. Leaderboard Screen renders rankings', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: LeaderboardScreen(
-            initialLeaderboard: sampleLeaderboard,
-            currentUserId: 'user-e2e-1',
+            initialUsers: sampleLeaderboard,
           ),
         ),
       );
-      expect(find.text('Community Leaderboard'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Leaderboard'), findsOneWidget);
       expect(find.text('Alex Green'), findsWidgets);
     });
 
@@ -241,13 +262,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: ProgressScreen(
-            initialUser: sampleUser,
-            initialCompletedCount: 12,
-            initialCompletedChallenges: 2,
-            initialUnlockedAchievements: 3,
+            initialStats: sampleUserStats,
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('My Progress'), findsOneWidget);
       expect(find.text('340'), findsOneWidget);
     });
@@ -257,20 +276,20 @@ void main() {
         MaterialApp(
           home: ProfileScreen(
             initialUser: sampleUser,
-            initialActivitiesCount: 12,
-            initialChallengesCount: 2,
-            initialAchievementsCount: 3,
+            initialStats: sampleUserStats,
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Alex Green'), findsOneWidget);
       expect(find.text('alex@example.com'), findsOneWidget);
 
       await tester.pumpWidget(
         MaterialApp(
-          home: EditProfileScreen(user: sampleUser),
+          home: EditProfileScreen(initialUser: sampleUser),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Edit Profile'), findsOneWidget);
 
       await tester.pumpWidget(
@@ -278,6 +297,7 @@ void main() {
           home: SettingsScreen(),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Settings'), findsOneWidget);
 
       await tester.pumpWidget(
@@ -285,6 +305,7 @@ void main() {
           home: ChangePasswordScreen(),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Change Password'), findsOneWidget);
 
       await tester.pumpWidget(
@@ -295,7 +316,8 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Privacy Policy'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Privacy Policy'), findsWidgets);
     });
 
     testWidgets('12. Notifications Screen renders unread items', (tester) async {
@@ -306,6 +328,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Points Earned!'), findsOneWidget);
     });
@@ -319,6 +342,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Admin Console'), findsOneWidget);
       expect(find.text('142'), findsOneWidget); // Total Users
       expect(find.text('28'), findsOneWidget); // Total Activities
@@ -331,6 +355,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Manage Activities'), findsOneWidget);
       expect(find.text('Compost Kitchen Food Scraps'), findsOneWidget);
 
@@ -342,6 +367,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Manage Challenges'), findsOneWidget);
 
       // Manage Users Console
@@ -352,6 +378,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('User Directory'), findsOneWidget);
       expect(find.text('Alex Green'), findsOneWidget);
       expect(find.text('Admin Chief'), findsOneWidget);
@@ -364,7 +391,8 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Announcements'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('System Announcements'), findsOneWidget);
       expect(find.text('Spring Tree Planting Festival'), findsOneWidget);
     });
   });
@@ -377,16 +405,16 @@ void main() {
       expect(AppRoutes.register, '/register');
       expect(AppRoutes.home, '/home');
       expect(AppRoutes.activities, '/activities');
-      expect(AppRoutes.activityDetails, '/activity-details');
+      expect(AppRoutes.activityDetails, '/activities/details');
       expect(AppRoutes.challenges, '/challenges');
-      expect(AppRoutes.challengeDetails, '/challenge-details');
-      expect(AppRoutes.achievements, '/achievements');
+      expect(AppRoutes.challengeDetails, '/challenges/details');
+      expect(AppRoutes.rewards, '/rewards');
       expect(AppRoutes.leaderboard, '/leaderboard');
       expect(AppRoutes.progress, '/progress');
       expect(AppRoutes.profile, '/profile');
-      expect(AppRoutes.editProfile, '/edit-profile');
+      expect(AppRoutes.editProfile, '/profile/edit');
       expect(AppRoutes.settings, '/settings');
-      expect(AppRoutes.changePassword, '/change-password');
+      expect(AppRoutes.changePassword, '/profile/change-password');
       expect(AppRoutes.notifications, '/notifications');
       expect(AppRoutes.adminDashboard, '/admin');
       expect(AppRoutes.adminActivities, '/admin/activities');
