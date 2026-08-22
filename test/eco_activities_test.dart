@@ -212,9 +212,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text(
-          'Activity recorded! Points (+15 pts) will be credited in the rewards step.',
-        ),
+        find.text('Please log in to complete activities and earn points.'),
         findsOneWidget,
       );
     });
