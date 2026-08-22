@@ -51,7 +51,7 @@ class SearchFilterBar extends StatelessWidget {
                         : AppColors.borderLight,
                   ),
                 ),
-                child: TextField(
+                child: TextFormField(
                   controller: searchController,
                   onChanged: onSearchChanged,
                   style: TextStyle(

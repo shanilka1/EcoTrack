@@ -3,16 +3,18 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/utils/debouncer.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/custom_button.dart';
-import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/loading_indicator.dart';
+import '../../../core/widgets/search_filter_bar.dart';
+import '../models/activity_filter_model.dart';
 import '../models/eco_activity_model.dart';
 import '../services/activity_service.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/eco_activity_card.dart';
 
-/// Eco Activities Screen displaying real Firestore activities with search & category filtering
+/// Eco Activities Screen displaying real Firestore activities with live search & multi-facet filtering
 class ActivitiesScreen extends StatefulWidget {
   final ActivityService? activityService;
   final List<EcoActivityModel>? initialActivities;
@@ -30,11 +32,11 @@ class ActivitiesScreen extends StatefulWidget {
 class _ActivitiesScreenState extends State<ActivitiesScreen> {
   late final ActivityService _activityService;
   final _searchController = TextEditingController();
+  final _debouncer = Debouncer(delay: const Duration(milliseconds: 250));
 
   List<EcoActivityModel> _allActivities = [];
   List<EcoActivityModel> _filteredActivities = [];
-  String _selectedCategory = 'All';
-  String _searchQuery = '';
+  ActivityFilterModel _filter = ActivityFilterModel.initial();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -56,6 +58,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debouncer.dispose();
     super.dispose();
   }
 
@@ -85,12 +88,12 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     }
   }
 
-  /// Extracts unique categories dynamically from loaded activities
+  /// Extracts unique categories dynamically from loaded backend activities
   List<String> get _categories {
     final categoriesSet = <String>{'All'};
     for (final act in _allActivities) {
-      if (act.category.isNotEmpty) {
-        categoriesSet.add(act.category);
+      if (act.category.trim().isNotEmpty) {
+        categoriesSet.add(act.category.trim());
       }
     }
     return categoriesSet.toList();
@@ -98,32 +101,45 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
   void _onSearchChanged(String query) {
     setState(() {
-      _searchQuery = query.trim().toLowerCase();
+      _filter = _filter.copyWith(searchQuery: query);
+      _applyFilter();
+    });
+  }
+
+  void _onClearSearch() {
+    _searchController.clear();
+    setState(() {
+      _filter = _filter.copyWith(searchQuery: '');
       _applyFilter();
     });
   }
 
   void _onCategorySelected(String category) {
     setState(() {
-      _selectedCategory = category;
+      _filter = _filter.copyWith(
+        selectedCategory: () => category == 'All' ? null : category,
+      );
+      _applyFilter();
+    });
+  }
+
+  void _onPointsRangeSelected(PointsRangeFilter range) {
+    setState(() {
+      _filter = _filter.copyWith(pointsFilter: range);
+      _applyFilter();
+    });
+  }
+
+  void _clearAllFilters() {
+    _searchController.clear();
+    setState(() {
+      _filter = ActivityFilterModel.initial();
       _applyFilter();
     });
   }
 
   void _applyFilter() {
-    _filteredActivities = _allActivities.where((activity) {
-      // 1. Category Filter
-      final matchesCategory = _selectedCategory == 'All' ||
-          activity.category.toLowerCase() == _selectedCategory.toLowerCase();
-
-      // 2. Search Query Filter (Title, Description, Category)
-      final matchesSearch = _searchQuery.isEmpty ||
-          activity.title.toLowerCase().contains(_searchQuery) ||
-          activity.description.toLowerCase().contains(_searchQuery) ||
-          activity.category.toLowerCase().contains(_searchQuery);
-
-      return matchesCategory && matchesSearch;
-    }).toList();
+    _filteredActivities = _filter.apply(_allActivities);
   }
 
   void _navigateToDetails(EcoActivityModel activity) {
@@ -131,6 +147,185 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       AppRoutes.activityDetails,
       arguments: activity,
     );
+  }
+
+  void _openFilterBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor:
+          isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConstants.radiusL),
+        ),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(AppConstants.paddingL),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Filter Activities',
+                          style: AppTypography.headingSmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                        if (_filter.hasActiveFilters)
+                          TextButton(
+                            onPressed: () {
+                              _clearAllFilters();
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Reset All'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppConstants.paddingM),
+
+                    // Points Range Filter
+                    Text(
+                      'Points Range',
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: PointsRangeFilter.values.map((range) {
+                        final isSelected = _filter.pointsFilter == range;
+                        return ChoiceChip(
+                          label: Text(range.label),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimaryLight),
+                            fontSize: 12.5,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          onSelected: (_) {
+                            _onPointsRangeSelected(range);
+                            setSheetState(() {});
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingL),
+
+                    CustomButton(
+                      text: 'Apply Filters',
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildActiveFilterChips(bool isDark) {
+    final chips = <Widget>[];
+
+    // Category Chip
+    if (_filter.selectedCategory != null &&
+        _filter.selectedCategory != 'All') {
+      chips.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Chip(
+            backgroundColor: AppColors.primary.withAlpha(isDark ? 50 : 30),
+            label: Text(
+              'Category: ${_filter.selectedCategory}',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+            deleteIcon: const Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: AppColors.primary,
+            ),
+            onDeleted: () => _onCategorySelected('All'),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+          ),
+        ),
+      );
+    }
+
+    // Points Range Chip
+    if (_filter.pointsFilter != PointsRangeFilter.all) {
+      chips.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Chip(
+            backgroundColor: AppColors.secondary.withAlpha(isDark ? 50 : 30),
+            label: Text(
+              _filter.pointsFilter.label,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.secondary,
+              ),
+            ),
+            deleteIcon: const Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: AppColors.secondary,
+            ),
+            onDeleted: () =>
+                _onPointsRangeSelected(PointsRangeFilter.all),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+          ),
+        ),
+      );
+    }
+
+    // Clear All Action Chip
+    if (chips.isNotEmpty) {
+      chips.add(
+        ActionChip(
+          label: const Text(
+            'Clear all',
+            style: TextStyle(fontSize: 11.5, color: AppColors.error),
+          ),
+          onPressed: _clearAllFilters,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: EdgeInsets.zero,
+        ),
+      );
+    }
+
+    return chips;
   }
 
   @override
@@ -149,7 +344,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Search Input Field
+            // Reusable Search & Filter Bar
             Padding(
               padding: EdgeInsets.fromLTRB(
                 isSmall ? AppConstants.paddingM : AppConstants.paddingL,
@@ -157,24 +352,14 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                 isSmall ? AppConstants.paddingM : AppConstants.paddingL,
                 AppConstants.paddingS,
               ),
-              child: CustomTextField(
-                hintText: 'Search eco activities...',
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
+              child: SearchFilterBar(
+                searchController: _searchController,
+                hintText: 'Search activities, categories...',
+                onSearchChanged: _onSearchChanged,
+                onClearSearch: _onClearSearch,
+                onFilterTap: _openFilterBottomSheet,
+                activeFilterCount: _filter.activeFiltersCount,
+                activeFilterChips: _buildActiveFilterChips(isDark),
               ),
             ),
 
@@ -182,7 +367,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             if (_categories.length > 1) ...[
               CategoryFilterChips(
                 categories: _categories,
-                selectedCategory: _selectedCategory,
+                selectedCategory: _filter.selectedCategory ?? 'All',
                 onCategorySelected: _onCategorySelected,
               ),
               const SizedBox(height: AppConstants.paddingS),
@@ -236,16 +421,16 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
-    final hasActiveFilter = _searchQuery.isNotEmpty || _selectedCategory != 'All';
-
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.all(AppConstants.paddingXL),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              hasActiveFilter ? Icons.search_off_rounded : Icons.eco_outlined,
+              _filter.hasActiveFilters
+                  ? Icons.search_off_rounded
+                  : Icons.eco_outlined,
               size: 56,
               color: isDark
                   ? AppColors.textSecondaryDark
@@ -253,7 +438,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             ),
             const SizedBox(height: AppConstants.paddingM),
             Text(
-              hasActiveFilter
+              _filter.hasActiveFilters
                   ? 'No matching activities found'
                   : 'No active eco activities available',
               style: AppTypography.headingSmall.copyWith(
@@ -262,32 +447,25 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                     ? AppColors.textPrimaryDark
                     : AppColors.textPrimaryLight,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppConstants.paddingS),
             Text(
-              hasActiveFilter
-                  ? 'Try searching with different keywords or clearing your category filter.'
-                  : 'New environmental habits and activities will appear here when published.',
+              _filter.hasActiveFilters
+                  ? 'Try adjusting your search query or removing active filters.'
+                  : 'Check back soon for new eco-friendly actions to complete.',
+              textAlign: TextAlign.center,
               style: AppTypography.bodySmall.copyWith(
                 color: isDark
                     ? AppColors.textSecondaryDark
                     : AppColors.textSecondaryLight,
               ),
-              textAlign: TextAlign.center,
             ),
-            if (hasActiveFilter) ...[
-              const SizedBox(height: AppConstants.paddingM),
-              TextButton(
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {
-                    _searchQuery = '';
-                    _selectedCategory = 'All';
-                    _applyFilter();
-                  });
-                },
-                child: const Text('Clear Filters'),
+            if (_filter.hasActiveFilters) ...[
+              const SizedBox(height: AppConstants.paddingL),
+              CustomButton(
+                text: 'Clear Filters',
+                width: 180,
+                onPressed: _clearAllFilters,
               ),
             ],
           ],
@@ -299,18 +477,18 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   Widget _buildErrorState(bool isDark) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.all(AppConstants.paddingXL),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.cloud_off_rounded,
-              size: 48,
+              size: 56,
               color: AppColors.error,
             ),
             const SizedBox(height: AppConstants.paddingM),
             Text(
-              'Unable to load activities',
+              'Failed to Load Activities',
               style: AppTypography.headingSmall.copyWith(
                 fontWeight: FontWeight.bold,
                 color: isDark
@@ -320,7 +498,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             ),
             const SizedBox(height: AppConstants.paddingS),
             Text(
-              _errorMessage ?? 'Please check your connection and retry.',
+              _errorMessage!,
               textAlign: TextAlign.center,
               style: AppTypography.bodySmall.copyWith(
                 color: isDark
@@ -331,7 +509,6 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             const SizedBox(height: AppConstants.paddingL),
             CustomButton(
               text: 'Retry',
-              icon: Icons.refresh_rounded,
               width: 140,
               onPressed: _loadActivities,
             ),
