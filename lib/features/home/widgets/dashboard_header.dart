@@ -4,12 +4,14 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
 
-/// Professional Dashboard Header showing dynamic greeting, actual user name, and avatar menu
+/// Professional Dashboard Header showing dynamic greeting, actual user name, notification bell, and avatar menu
 class DashboardHeader extends StatelessWidget {
   final String fullName;
   final VoidCallback onLogout;
   final VoidCallback? onProfile;
   final VoidCallback? onSettings;
+  final VoidCallback? onNotifications;
+  final int unreadNotificationsCount;
 
   const DashboardHeader({
     super.key,
@@ -17,6 +19,8 @@ class DashboardHeader extends StatelessWidget {
     required this.onLogout,
     this.onProfile,
     this.onSettings,
+    this.onNotifications,
+    this.unreadNotificationsCount = 0,
   });
 
   /// Computes dynamic greeting based on current local time
@@ -83,7 +87,60 @@ class DashboardHeader extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(width: AppConstants.paddingM),
+        const SizedBox(width: AppConstants.paddingS),
+
+        // Notification Bell Icon with Badge
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: Icon(
+                unreadNotificationsCount > 0
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_outlined,
+                size: 24,
+                color: unreadNotificationsCount > 0
+                    ? AppColors.primary
+                    : (isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight),
+              ),
+              tooltip: 'Notifications',
+              onPressed: onNotifications,
+            ),
+            if (unreadNotificationsCount > 0)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(3.5),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Center(
+                    child: Text(
+                      unreadNotificationsCount > 99
+                          ? '99+'
+                          : '$unreadNotificationsCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+
+        const SizedBox(width: 2),
 
         // User Avatar with Profile/Settings/Logout popup
         PopupMenuButton<String>(
@@ -164,8 +221,8 @@ class DashboardHeader extends StatelessWidget {
             ),
           ],
           child: Container(
-            width: isSmall ? 40 : 46,
-            height: isSmall ? 40 : 46,
+            width: isSmall ? 38 : 44,
+            height: isSmall ? 38 : 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -189,7 +246,7 @@ class DashboardHeader extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 15,
                 ),
               ),
             ),
