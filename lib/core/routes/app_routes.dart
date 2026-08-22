@@ -10,6 +10,7 @@ import '../../features/challenges/models/challenge_progress_model.dart';
 import '../../features/challenges/screens/challenge_details_screen.dart';
 import '../../features/challenges/screens/challenges_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/leaderboard/screens/leaderboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/rewards/screens/achievements_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
@@ -136,6 +137,12 @@ class AppRoutes {
       case rewards:
         return MaterialPageRoute(
           builder: (_) => const AchievementsScreen(),
+          settings: settings,
+        );
+
+      case leaderboard:
+        return MaterialPageRoute(
+          builder: (_) => const LeaderboardScreen(),
           settings: settings,
         );
 

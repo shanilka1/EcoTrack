@@ -145,6 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    if (featureName == 'Leaderboard') {
+      Navigator.of(context).pushNamed(AppRoutes.leaderboard);
+      return;
+    }
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
