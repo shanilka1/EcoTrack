@@ -4,17 +4,19 @@ import '../constants/app_constants.dart';
 
 enum ButtonType { primary, secondary, outlined, text }
 
-/// Reusable Custom Button supporting multiple variants, loading state, and icons
+/// Reusable Custom Button supporting multiple variants, loading state, leading widget, and icons
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final ButtonType type;
   final bool isLoading;
   final IconData? icon;
+  final Widget? leadingWidget;
   final double? width;
   final double? height;
   final Color? backgroundColor;
   final Color? textColor;
+  final Color? borderColor;
 
   const CustomButton({
     super.key,
@@ -23,10 +25,12 @@ class CustomButton extends StatelessWidget {
     this.type = ButtonType.primary,
     this.isLoading = false,
     this.icon,
+    this.leadingWidget,
     this.width,
     this.height = 50.0,
     this.backgroundColor,
     this.textColor,
+    this.borderColor,
   });
 
   @override
@@ -45,8 +49,10 @@ class CustomButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
+            backgroundColor: backgroundColor,
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingM),
             side: BorderSide(
-              color: backgroundColor ?? AppColors.primary,
+              color: borderColor ?? backgroundColor ?? AppColors.primary,
               width: 1.5,
             ),
             shape: RoundedRectangleBorder(
@@ -71,6 +77,7 @@ class CustomButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: bgColor,
           foregroundColor: textColor ?? Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingM),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusM),
           ),
@@ -92,6 +99,29 @@ class CustomButton extends StatelessWidget {
       );
     }
 
+    if (leadingWidget != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          leadingWidget!,
+          const SizedBox(width: AppConstants.paddingS + 2),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     if (icon != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -99,12 +129,16 @@ class CustomButton extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: color),
           const SizedBox(width: AppConstants.paddingS),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: color,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -113,6 +147,8 @@ class CustomButton extends StatelessWidget {
 
     return Text(
       text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,

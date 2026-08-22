@@ -14,7 +14,10 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final int maxLines;
   final bool enabled;
+  final FocusNode? focusNode;
   final void Function(String)? onChanged;
+  final void Function(String)? onFieldSubmitted;
+  final AutovalidateMode? autovalidateMode;
 
   const CustomTextField({
     super.key,
@@ -29,7 +32,10 @@ class CustomTextField extends StatelessWidget {
     this.suffixIcon,
     this.maxLines = 1,
     this.enabled = true,
+    this.focusNode,
     this.onChanged,
+    this.onFieldSubmitted,
+    this.autovalidateMode,
   });
 
   @override
@@ -43,7 +49,7 @@ class CustomTextField extends StatelessWidget {
             label!,
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: AppConstants.paddingXS + 2),
@@ -56,7 +62,10 @@ class CustomTextField extends StatelessWidget {
           validator: validator,
           maxLines: maxLines,
           enabled: enabled,
+          focusNode: focusNode,
           onChanged: onChanged,
+          onFieldSubmitted: onFieldSubmitted,
+          autovalidateMode: autovalidateMode,
           decoration: InputDecoration(
             hintText: hintText,
             prefixIcon: prefixIcon,

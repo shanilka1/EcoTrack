@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
@@ -30,6 +32,18 @@ class AppRoutes {
       case onboarding:
         return MaterialPageRoute(
           builder: (_) => const OnboardingScreen(),
+          settings: settings,
+        );
+
+      case login:
+        return MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+          settings: settings,
+        );
+
+      case register:
+        return MaterialPageRoute(
+          builder: (_) => const RegisterScreen(),
           settings: settings,
         );
 
