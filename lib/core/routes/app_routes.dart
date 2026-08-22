@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import '../../features/activities/models/eco_activity_model.dart';
 import '../../features/activities/screens/activities_screen.dart';
 import '../../features/activities/screens/activity_details_screen.dart';
+import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/admin/screens/manage_achievements_screen.dart';
+import '../../features/admin/screens/manage_activities_screen.dart';
+import '../../features/admin/screens/manage_announcements_screen.dart';
+import '../../features/admin/screens/manage_challenges_screen.dart';
+import '../../features/admin/screens/manage_users_screen.dart';
 import '../../features/auth/models/user_model.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
@@ -48,6 +54,12 @@ class AppRoutes {
   static const String about = '/settings/about';
   static const String privacyPolicy = '/settings/privacy';
   static const String termsConditions = '/settings/terms';
+  static const String adminDashboard = '/admin';
+  static const String adminActivities = '/admin/activities';
+  static const String adminChallenges = '/admin/challenges';
+  static const String adminAchievements = '/admin/achievements';
+  static const String adminUsers = '/admin/users';
+  static const String adminAnnouncements = '/admin/announcements';
 
   /// Generates routes dynamically based on RouteSettings
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -219,6 +231,42 @@ class AppRoutes {
       case termsConditions:
         return MaterialPageRoute(
           builder: (_) => LegalInfoScreen.termsOfService(),
+          settings: settings,
+        );
+
+      case adminDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const AdminDashboardScreen(),
+          settings: settings,
+        );
+
+      case adminActivities:
+        return MaterialPageRoute(
+          builder: (_) => const ManageActivitiesScreen(),
+          settings: settings,
+        );
+
+      case adminChallenges:
+        return MaterialPageRoute(
+          builder: (_) => const ManageChallengesScreen(),
+          settings: settings,
+        );
+
+      case adminAchievements:
+        return MaterialPageRoute(
+          builder: (_) => const ManageAchievementsScreen(),
+          settings: settings,
+        );
+
+      case adminUsers:
+        return MaterialPageRoute(
+          builder: (_) => const ManageUsersScreen(),
+          settings: settings,
+        );
+
+      case adminAnnouncements:
+        return MaterialPageRoute(
+          builder: (_) => const ManageAnnouncementsScreen(),
           settings: settings,
         );
 

@@ -6,6 +6,7 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/custom_button.dart';
+import '../../../core/widgets/custom_card.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/services/auth_service.dart';
 import '../../auth/services/user_service.dart';
@@ -234,6 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 // 1. Dashboard Header (Greeting + User Name from Firestore + Notifications + Avatar/Profile/Settings/Logout)
                 DashboardHeader(
                   fullName: user.fullName,
+                  isAdmin: user.role == 'admin',
+                  onAdmin: () => Navigator.of(context).pushNamed(
+                    AppRoutes.adminDashboard,
+                  ),
                   unreadNotificationsCount: _unreadCount,
                   onNotifications: () => Navigator.of(context).pushNamed(
                     AppRoutes.notifications,
@@ -248,6 +253,74 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 SizedBox(height: isSmall ? 16 : 24),
+
+                // Admin Banner (Only visible to authenticated administrators)
+                if (user.role == 'admin') ...[
+                  CustomCard(
+                    padding: const EdgeInsets.all(AppConstants.paddingM),
+                    border: Border.all(
+                      color: AppColors.error.withAlpha(100),
+                      width: 1.5,
+                    ),
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pushNamed(
+                        AppRoutes.adminDashboard,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(AppConstants.radiusM),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withAlpha(25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.admin_panel_settings_rounded,
+                              color: AppColors.error,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Admin Console',
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 14 : 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark
+                                        ? AppColors.textPrimaryDark
+                                        : AppColors.textPrimaryLight,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Manage platform activities, challenges & users',
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 11.5 : 12.5,
+                                    color: isDark
+                                        ? AppColors.textSecondaryDark
+                                        : AppColors.textSecondaryLight,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: AppColors.error,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppConstants.paddingM),
+                ],
 
                 // 2. Prominent Eco Points Card (Real Firestore ecoPoints)
                 EcoPointsCard(

@@ -11,54 +11,85 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // Rules for Users Collection & Subcollections
     match /users/{userId} {
+      // Allow reading user public profile if authenticated
       allow read: if isAuthenticated();
-      allow create, update: if isOwner(userId);
-      allow delete: if false;
+      
+      // Allow creating user upon registration
+      allow create: if isOwner(userId);
+      
+      // Allow updating profile (normal users cannot change role)
+      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])))
+                    || isAdmin();
+      allow delete: if isAdmin();
 
       // Completed Activities Subcollection
       match /completedActivities/{completionId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId)
                       && request.resource.data.userId == userId
                       && request.resource.data.pointsAwarded > 0;
-        allow update, delete: if false;
+        allow update, delete: if isAdmin();
       }
 
       // Challenge Progress Subcollection
       match /challengeProgress/{challengeId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId)
                               && request.resource.data.userId == userId;
-        allow delete: if false;
+        allow delete: if isAdmin();
       }
 
       // Achievements Subcollection
       match /achievements/{achievementId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId)
                       && request.resource.data.userId == userId;
-        allow update, delete: if false;
+        allow update, delete: if isAdmin();
+      }
+
+      // Notifications Subcollection
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) || isAdmin();
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // User Settings Subcollection
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
     // Rules for Eco Activities Collection
     match /ecoActivities/{activityId} {
-      allow read: if isAuthenticated() && (resource.data.isActive == true || isOwner(resource.data.authorId));
-      allow create, update, delete: if false;
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
 
     // Rules for Challenges Collection
     match /challenges/{challengeId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if false;
+      allow create, update, delete: if isAdmin();
     }
 
     // Rules for Achievements Collection
     match /achievements/{achievementId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Rules for Announcements Collection
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
   }
 }

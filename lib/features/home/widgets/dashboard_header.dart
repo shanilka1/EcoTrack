@@ -11,7 +11,9 @@ class DashboardHeader extends StatelessWidget {
   final VoidCallback? onProfile;
   final VoidCallback? onSettings;
   final VoidCallback? onNotifications;
+  final VoidCallback? onAdmin;
   final int unreadNotificationsCount;
+  final bool isAdmin;
 
   const DashboardHeader({
     super.key,
@@ -20,7 +22,9 @@ class DashboardHeader extends StatelessWidget {
     this.onProfile,
     this.onSettings,
     this.onNotifications,
+    this.onAdmin,
     this.unreadNotificationsCount = 0,
+    this.isAdmin = false,
   });
 
   /// Computes dynamic greeting based on current local time
@@ -145,7 +149,9 @@ class DashboardHeader extends StatelessWidget {
         // User Avatar with Profile/Settings/Logout popup
         PopupMenuButton<String>(
           onSelected: (value) {
-            if (value == 'profile') {
+            if (value == 'admin') {
+              onAdmin?.call();
+            } else if (value == 'profile') {
               onProfile?.call();
             } else if (value == 'settings') {
               onSettings?.call();
@@ -157,6 +163,30 @@ class DashboardHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppConstants.radiusM),
           ),
           itemBuilder: (context) => [
+            if (isAdmin) ...[
+              const PopupMenuItem(
+                value: 'admin',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.shield_rounded,
+                      size: 18,
+                      color: AppColors.error,
+                    ),
+                    SizedBox(width: AppConstants.paddingS),
+                    Text(
+                      'Admin Console',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(height: 1),
+            ],
             const PopupMenuItem(
               value: 'profile',
               child: Row(
