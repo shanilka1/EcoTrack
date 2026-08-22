@@ -6,14 +6,17 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../auth/services/auth_service.dart';
+import '../../notifications/services/notification_service.dart';
 
 /// Settings Screen providing account, preferences, legal information, and logout
 class SettingsScreen extends StatefulWidget {
   final AuthService? authService;
+  final NotificationService? notificationService;
 
   const SettingsScreen({
     super.key,
     this.authService,
+    this.notificationService,
   });
 
   @override
@@ -22,6 +25,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final AuthService _authService;
+  late final NotificationService _notificationService;
   String _selectedLanguage = 'English';
   bool _notificationsEnabled = true;
 
@@ -29,6 +33,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _authService = widget.authService ?? AuthService();
+    _notificationService =
+        widget.notificationService ?? NotificationService();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final uid = _authService.currentFirebaseUser?.uid;
+    if (uid == null) return;
+
+    try {
+      final prefs =
+          await _notificationService.fetchNotificationPreferences(uid);
+      if (mounted) {
+        setState(() {
+          _notificationsEnabled = prefs['general'] ?? true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    setState(() => _notificationsEnabled = value);
+    final uid = _authService.currentFirebaseUser?.uid;
+    if (uid == null) return;
+
+    try {
+      await _notificationService.updateNotificationPreferences(
+        uid,
+        {
+          'activities': value,
+          'challenges': value,
+          'achievements': value,
+          'general': value,
+        },
+      );
+    } catch (_) {}
   }
 
   void _showLanguageDialog() {
@@ -201,9 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: _notificationsEnabled,
                           activeTrackColor: AppColors.primaryLight,
                           activeThumbColor: AppColors.primary,
-                          onChanged: (val) {
-                            setState(() => _notificationsEnabled = val);
-                          },
+                          onChanged: _toggleNotifications,
                         ),
                       ],
                     ),

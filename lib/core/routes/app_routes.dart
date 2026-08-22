@@ -11,6 +11,7 @@ import '../../features/challenges/screens/challenge_details_screen.dart';
 import '../../features/challenges/screens/challenges_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/leaderboard/screens/leaderboard_screen.dart';
+import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/profile/screens/about_screen.dart';
 import '../../features/profile/screens/change_password_screen.dart';
@@ -40,6 +41,7 @@ class AppRoutes {
   static const String rewards = '/rewards';
   static const String progress = '/progress';
   static const String profile = '/profile';
+  static const String notifications = '/notifications';
   static const String editProfile = '/profile/edit';
   static const String changePassword = '/profile/change-password';
   static const String settings = '/settings';
@@ -172,6 +174,12 @@ class AppRoutes {
             : null;
         return MaterialPageRoute(
           builder: (_) => ProfileScreen(initialUser: user),
+          settings: settings,
+        );
+
+      case notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationsScreen(),
           settings: settings,
         );
 

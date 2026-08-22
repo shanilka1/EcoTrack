@@ -9,6 +9,7 @@ import '../../../core/widgets/custom_button.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/services/auth_service.dart';
 import '../../auth/services/user_service.dart';
+import '../../notifications/services/notification_service.dart';
 import '../widgets/dashboard_header.dart';
 import '../widgets/dashboard_loading_skeleton.dart';
 import '../widgets/eco_points_card.dart';
@@ -21,12 +22,14 @@ class HomeScreen extends StatefulWidget {
   final UserModel? initialUser;
   final AuthService? authService;
   final UserService? userService;
+  final NotificationService? notificationService;
 
   const HomeScreen({
     super.key,
     this.initialUser,
     this.authService,
     this.userService,
+    this.notificationService,
   });
 
   @override
@@ -36,9 +39,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final AuthService _authService;
   late final UserService _userService;
+  late final NotificationService _notificationService;
 
   UserModel? _user;
   StreamSubscription<UserModel?>? _userSubscription;
+  StreamSubscription<int>? _unreadSubscription;
+  int _unreadCount = 0;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -47,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _authService = widget.authService ?? AuthService();
     _userService = widget.userService ?? UserService();
+    _notificationService = widget.notificationService ?? NotificationService();
 
     _user = widget.initialUser;
     _loadUserProfile();
@@ -56,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _userSubscription?.cancel();
+    _unreadSubscription?.cancel();
     super.dispose();
   }
 
@@ -73,6 +81,17 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         },
         onError: (_) {},
+      );
+
+      _unreadSubscription =
+          _notificationService.streamUnreadCount(uid).listen(
+        (count) {
+          if (mounted) {
+            setState(() {
+              _unreadCount = count;
+            });
+          }
+        },
       );
     }
   }
@@ -212,9 +231,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Dashboard Header (Greeting + User Name from Firestore + Avatar/Profile/Settings/Logout)
+                // 1. Dashboard Header (Greeting + User Name from Firestore + Notifications + Avatar/Profile/Settings/Logout)
                 DashboardHeader(
                   fullName: user.fullName,
+                  unreadNotificationsCount: _unreadCount,
+                  onNotifications: () => Navigator.of(context).pushNamed(
+                    AppRoutes.notifications,
+                  ),
                   onLogout: _handleLogout,
                   onProfile: () => Navigator.of(context).pushNamed(
                     AppRoutes.profile,
