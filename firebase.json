@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"ecotrack-100ff","appId":"1:252310574246:android:1acbd676d9530c7c551067","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"ecotrack-100ff","configurations":{"android":"1:252310574246:android:1acbd676d9530c7c551067","ios":"1:252310574246:ios:eac8d58dea07abb2551067","macos":"1:252310574246:ios:eac8d58dea07abb2551067","web":"1:252310574246:web:fe3ec4f96ccb5c1b551067","windows":"1:252310574246:web:636e01bfb0090e27551067"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ecotrack-100ff",
+          "appId": "1:252310574246:android:1acbd676d9530c7c551067",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ecotrack-100ff",
+          "configurations": {
+            "android": "1:252310574246:android:1acbd676d9530c7c551067",
+            "ios": "1:252310574246:ios:eac8d58dea07abb2551067",
+            "macos": "1:252310574246:ios:eac8d58dea07abb2551067",
+            "web": "1:252310574246:web:fe3ec4f96ccb5c1b551067",
+            "windows": "1:252310574246:web:636e01bfb0090e27551067"
+          }
+        }
+      }
+    }
+  }
+}
