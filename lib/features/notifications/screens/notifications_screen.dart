@@ -340,7 +340,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           isSmall ? AppConstants.paddingM : AppConstants.paddingL,
         ),
         itemCount: notifications.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (context, index) =>
             SizedBox(height: isSmall ? 8 : AppConstants.paddingS + 2),
         itemBuilder: (context, index) {
           final notif = notifications[index];
