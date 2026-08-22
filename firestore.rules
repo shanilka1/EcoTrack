@@ -11,28 +11,35 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Rules for Users Collection
+    // Rules for Users Collection & Completions Subcollection
     match /users/{userId} {
-      // Any authenticated user can read profiles (for future leaderboard/social features)
+      // Authenticated users can read profiles
       allow read: if isAuthenticated();
 
-      // Only the authenticated user can create their own document with default values
-      allow create: if isOwner(userId)
-                    && request.resource.data.uid == userId
-                    && request.resource.data.role == 'user'
-                    && request.resource.data.ecoPoints == 0
-                    && request.resource.data.level == 1;
-
-      // Users can only update non-sensitive profile fields (cannot alter role, points, or level directly)
-      allow update: if isOwner(userId)
-                    && request.resource.data.uid == resource.data.uid
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.ecoPoints == resource.data.ecoPoints
-                    && request.resource.data.level == resource.data.level
-                    && request.resource.data.createdAt == resource.data.createdAt;
-
-      // Deletions are forbidden from client
+      // Only the authenticated user can create/update their profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if false;
+
+      // Rules for Completed Activities Subcollection: users/{userId}/completedActivities/{completionId}
+      match /completedActivities/{completionId} {
+        // User can read their own completion history
+        allow read: if isOwner(userId);
+
+        // User can only create their own completion record with matching userId & positive points
+        allow create: if isOwner(userId)
+                      && request.resource.data.userId == userId
+                      && request.resource.data.pointsAwarded > 0;
+
+        // Completion records are immutable
+        allow update, delete: if false;
+      }
+    }
+
+    // Rules for Eco Activities Collection
+    match /ecoActivities/{activityId} {
+      allow read: if isAuthenticated() && (resource.data.isActive == true || isOwner(resource.data.authorId));
+      allow create, update, delete: if false;
     }
   }
 }

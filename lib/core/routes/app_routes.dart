@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../features/activities/models/eco_activity_model.dart';
+import '../../features/activities/screens/activities_screen.dart';
+import '../../features/activities/screens/activity_details_screen.dart';
 import '../../features/auth/models/user_model.dart';
-import '../../features/auth/screens/auth_placeholder_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
+import '../../features/home/screens/home_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
@@ -17,6 +20,7 @@ class AppRoutes {
   static const String register = '/register';
   static const String home = '/home';
   static const String activities = '/activities';
+  static const String activityDetails = '/activities/details';
   static const String challenges = '/challenges';
   static const String leaderboard = '/leaderboard';
   static const String rewards = '/rewards';
@@ -54,7 +58,34 @@ class AppRoutes {
             ? settings.arguments as UserModel
             : null;
         return MaterialPageRoute(
-          builder: (_) => AuthPlaceholderScreen(user: user),
+          builder: (_) => HomeScreen(initialUser: user),
+          settings: settings,
+        );
+
+      case activities:
+        return MaterialPageRoute(
+          builder: (_) => const ActivitiesScreen(),
+          settings: settings,
+        );
+
+      case activityDetails:
+        if (settings.arguments is EcoActivityModel) {
+          return MaterialPageRoute(
+            builder: (_) => ActivityDetailsScreen(
+              initialActivity: settings.arguments as EcoActivityModel,
+            ),
+            settings: settings,
+          );
+        } else if (settings.arguments is String) {
+          return MaterialPageRoute(
+            builder: (_) => ActivityDetailsScreen(
+              activityId: settings.arguments as String,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const ActivityDetailsScreen(),
           settings: settings,
         );
 

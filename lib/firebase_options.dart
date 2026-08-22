@@ -33,46 +33,44 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyEcoTrackWebPlaceholderKey12345',
-    appId: '1:100000000000:web:ecotrack0000000000000',
-    messagingSenderId: '100000000000',
-    projectId: 'ecotrack-app',
-    authDomain: 'ecotrack-app.firebaseapp.com',
-    storageBucket: 'ecotrack-app.appspot.com',
+    apiKey: 'AIzaSyC9LqTR7e8W-oev92zHnTuFQPsdvrd1Py4',
+    appId: '1:252310574246:web:fe3ec4f96ccb5c1b551067',
+    messagingSenderId: '252310574246',
+    projectId: 'ecotrack-100ff',
+    authDomain: 'ecotrack-100ff.firebaseapp.com',
+    storageBucket: 'ecotrack-100ff.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyEcoTrackAndroidPlaceholderKey123',
-    appId: '1:100000000000:android:ecotrack0000000000',
-    messagingSenderId: '100000000000',
-    projectId: 'ecotrack-app',
-    storageBucket: 'ecotrack-app.appspot.com',
+    apiKey: 'AIzaSyBIrqPtJwfbyWCTSRTCL5JegJ0qEt3zkVg',
+    appId: '1:252310574246:android:1acbd676d9530c7c551067',
+    messagingSenderId: '252310574246',
+    projectId: 'ecotrack-100ff',
+    storageBucket: 'ecotrack-100ff.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyEcoTrackIOSPlaceholderKey1234567',
-    appId: '1:100000000000:ios:ecotrack00000000000000',
-    messagingSenderId: '100000000000',
-    projectId: 'ecotrack-app',
-    storageBucket: 'ecotrack-app.appspot.com',
+    apiKey: 'AIzaSyA8dMVixKiZC52fcKsudv-EsDckAQZZ3N8',
+    appId: '1:252310574246:ios:eac8d58dea07abb2551067',
+    messagingSenderId: '252310574246',
+    projectId: 'ecotrack-100ff',
+    storageBucket: 'ecotrack-100ff.firebasestorage.app',
     iosBundleId: 'com.ecotrack.ecotrack',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyEcoTrackMacOSPlaceholderKey12345',
-    appId: '1:100000000000:ios:ecotrack00000000000000',
-    messagingSenderId: '100000000000',
-    projectId: 'ecotrack-app',
-    storageBucket: 'ecotrack-app.appspot.com',
+    apiKey: 'AIzaSyA8dMVixKiZC52fcKsudv-EsDckAQZZ3N8',
+    appId: '1:252310574246:ios:eac8d58dea07abb2551067',
+    messagingSenderId: '252310574246',
+    projectId: 'ecotrack-100ff',
+    storageBucket: 'ecotrack-100ff.firebasestorage.app',
     iosBundleId: 'com.ecotrack.ecotrack',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyEcoTrackWindowsPlaceholderKey123',
-    appId: '1:100000000000:web:ecotrack0000000000000',
-    messagingSenderId: '100000000000',
-    projectId: 'ecotrack-app',
-    authDomain: 'ecotrack-app.firebaseapp.com',
-    storageBucket: 'ecotrack-app.appspot.com',
+    apiKey: 'AIzaSyC9LqTR7e8W-oev92zHnTuFQPsdvrd1Py4',
+    appId: '1:252310574246:web:636e01bfb0090e27551067',
+    messagingSenderId: '252310574246',
+    projectId: 'ecotrack-100ff',
+    authDomain: 'ecotrack-100ff.firebaseapp.com',
+    storageBucket: 'ecotrack-100ff.firebasestorage.app',
   );
 }

@@ -16,6 +16,9 @@ class AppConstants {
   static const double radiusXL = 24.0;
   static const double radiusCircular = 999.0;
 
+  // Dimensions
+  static const double buttonHeight = 52.0;
+
   // Elevation
   static const double elevationLow = 2.0;
   static const double elevationMedium = 4.0;
