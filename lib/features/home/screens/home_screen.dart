@@ -135,6 +135,16 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    if (featureName == 'Challenges' || featureName == 'Browse Challenges') {
+      Navigator.of(context).pushNamed(AppRoutes.challenges);
+      return;
+    }
+
+    if (featureName == 'Badges' || featureName == 'Achievements') {
+      Navigator.of(context).pushNamed(AppRoutes.rewards);
+      return;
+    }
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -5,8 +5,8 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * Cloud Function to securely complete an eco activity and award eco points atomically.
- * Callable via Firebase Functions SDK.
+ * Cloud Function to securely complete an eco activity, advance active challenges,
+ * evaluate achievement milestones, and award eco points atomically.
  */
 exports.completeEcoActivity = functions.https.onCall(async (data, context) => {
   // 1. Verify authentication
@@ -35,6 +35,13 @@ exports.completeEcoActivity = functions.https.onCall(async (data, context) => {
   const userDocRef = db.collection("users").doc(userId);
   const completionDocRef = userDocRef.collection("completedActivities").doc(completionDocId);
 
+  // Pre-fetch active challenges and achievements
+  const [activeChallengesSnap, activeAchievementsSnap, userCompletionsSnap] = await Promise.all([
+    db.collection("challenges").where("isActive", "==", true).get(),
+    db.collection("achievements").where("isActive", "==", true).get(),
+    userDocRef.collection("completedActivities").get(),
+  ]);
+
   return db.runTransaction(async (transaction) => {
     // 2. Verify activity exists and is active
     const activitySnap = await transaction.get(activityDocRef);
@@ -60,12 +67,12 @@ exports.completeEcoActivity = functions.https.onCall(async (data, context) => {
       };
     }
 
-    // 4. Read user points and calculate new level
+    // 4. Read user points and calculate base points
     const userSnap = await transaction.get(userDocRef);
     const currentPoints = (userSnap.data() && userSnap.data().ecoPoints) || 0;
-    const pointsAwarded = Number(activityData.points) || 0;
-    const newTotalPoints = currentPoints + pointsAwarded;
-    const newLevel = Math.floor(newTotalPoints / 100) + 1;
+    const basePointsAwarded = Number(activityData.points) || 0;
+    let totalBonusPoints = 0;
+    let newlyCompletedChallenges = 0;
 
     // 5. Create completion record
     transaction.set(completionDocRef, {
@@ -74,21 +81,113 @@ exports.completeEcoActivity = functions.https.onCall(async (data, context) => {
       userId: userId,
       activityTitle: activityData.title || "",
       category: activityData.category || "General",
-      pointsAwarded: pointsAwarded,
+      pointsAwarded: basePointsAwarded,
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
       completionDate: dateKey,
     });
 
-    // 6. Update user profile
+    // 6. Advance ongoing challenges
+    for (const challengeDoc of activeChallengesSnap.docs) {
+      const cData = challengeDoc.data();
+      const challengeId = challengeDoc.id;
+      const type = cData.type || "activity_count";
+      const target = Number(cData.target) || 1;
+      const targetCategory = cData.targetCategory;
+      const rewardPoints = Number(cData.rewardPoints) || 0;
+
+      let isMatching = false;
+      if (type === "activity_count") {
+        isMatching = true;
+      } else if (type === "category_activity") {
+        isMatching = !targetCategory || (activityData.category && activityData.category.toLowerCase() === targetCategory.toLowerCase());
+      }
+
+      if (!isMatching) continue;
+
+      const progressDocRef = userDocRef.collection("challengeProgress").doc(challengeId);
+      const progressSnap = await transaction.get(progressDocRef);
+
+      const currentProgress = (progressSnap.data() && progressSnap.data().progress) || 0;
+      const isAlreadyClaimed = (progressSnap.data() && progressSnap.data().rewardClaimed) || false;
+
+      const newProgress = currentProgress + 1;
+      const isTargetReached = newProgress >= target;
+
+      if (isTargetReached && !isAlreadyClaimed) {
+        totalBonusPoints += rewardPoints;
+        newlyCompletedChallenges++;
+        transaction.set(progressDocRef, {
+          challengeId: challengeId,
+          userId: userId,
+          progress: newProgress,
+          target: target,
+          status: "completed",
+          startedAt: progressSnap.exists ? progressSnap.data().startedAt : admin.firestore.FieldValue.serverTimestamp(),
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          rewardClaimed: true,
+        }, { merge: true });
+      } else if (!isAlreadyClaimed) {
+        transaction.set(progressDocRef, {
+          challengeId: challengeId,
+          userId: userId,
+          progress: newProgress,
+          target: target,
+          status: "in_progress",
+          startedAt: progressSnap.exists ? progressSnap.data().startedAt : admin.firestore.FieldValue.serverTimestamp(),
+          rewardClaimed: false,
+        }, { merge: true });
+      }
+    }
+
+    const finalAwardedPoints = basePointsAwarded + totalBonusPoints;
+    const newTotalPoints = currentPoints + finalAwardedPoints;
+    const newLevel = Math.floor(newTotalPoints / 100) + 1;
+
+    // 7. Update user profile
     transaction.update(userDocRef, {
       ecoPoints: newTotalPoints,
       level: newLevel,
     });
 
+    // 8. Evaluate eligible achievements
+    const totalCompletions = userCompletionsSnap.docs.length + 1;
+    for (const achDoc of activeAchievementsSnap.docs) {
+      const aData = achDoc.data();
+      const achievementId = achDoc.id;
+      const reqType = aData.requirementType || "activity_count";
+      const reqVal = Number(aData.requirementValue) || 1;
+
+      const userAchDocRef = userDocRef.collection("achievements").doc(achievementId);
+      const userAchSnap = await transaction.get(userAchDocRef);
+
+      if (!userAchSnap.exists) {
+        let isEligible = false;
+        if (reqType === "first_activity") {
+          isEligible = totalCompletions >= 1;
+        } else if (reqType === "activity_count") {
+          isEligible = totalCompletions >= reqVal;
+        } else if (reqType === "points_reached") {
+          isEligible = newTotalPoints >= reqVal;
+        } else if (reqType === "challenges_completed") {
+          isEligible = newlyCompletedChallenges >= reqVal;
+        }
+
+        if (isEligible) {
+          transaction.set(userAchDocRef, {
+            achievementId: achievementId,
+            userId: userId,
+            unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: "unlocked",
+            rewardPointsAwarded: 0,
+          });
+        }
+      }
+    }
+
     return {
       success: true,
       alreadyCompleted: false,
-      pointsAwarded: pointsAwarded,
+      pointsAwarded: finalAwardedPoints,
       newTotalPoints: newTotalPoints,
       newLevel: newLevel,
     };

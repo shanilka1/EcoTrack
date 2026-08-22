@@ -63,12 +63,12 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Challenges'));
+      await tester.tap(find.text('Progress'));
       await tester.pumpAndSettle();
 
       expect(
         find.text(
-          'Challenges feature will be connected in a future development step.',
+          'Progress feature will be connected in a future development step.',
         ),
         findsOneWidget,
       );

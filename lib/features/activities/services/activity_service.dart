@@ -4,7 +4,8 @@ import '../../../core/utils/level_calculator.dart';
 import '../models/activity_completion_model.dart';
 import '../models/eco_activity_model.dart';
 
-/// Repository / Service responsible for fetching activities, recording completions, and updating eco points atomically
+/// Repository / Service responsible for fetching activities, recording completions,
+/// updating eco points, and evaluating challenge and achievement progress atomically.
 class ActivityService {
   final FirebaseFirestore? _customFirestore;
 
@@ -28,6 +29,20 @@ class ActivityService {
   CollectionReference<Map<String, dynamic>> _userCompletionsCollection(
           String userId) =>
       _firestore.collection('users').doc(userId).collection('completedActivities');
+
+  CollectionReference<Map<String, dynamic>> get _challengesCollection =>
+      _firestore.collection('challenges');
+
+  CollectionReference<Map<String, dynamic>> _userChallengeProgressCollection(
+          String userId) =>
+      _firestore.collection('users').doc(userId).collection('challengeProgress');
+
+  CollectionReference<Map<String, dynamic>> get _achievementsCollection =>
+      _firestore.collection('achievements');
+
+  CollectionReference<Map<String, dynamic>> _userAchievementsCollection(
+          String userId) =>
+      _firestore.collection('users').doc(userId).collection('achievements');
 
   /// Fetches all active eco activities from Cloud Firestore
   Future<List<EcoActivityModel>> fetchActiveActivities() async {
@@ -93,7 +108,8 @@ class ActivityService {
   }
 
   /// Securely completes an activity using an atomic Firestore transaction.
-  /// Authoritative points and duplicate checks are enforced on the backend.
+  /// Authoritative points, duplicate checks, challenge progressions, and achievements
+  /// are evaluated and awarded atomically.
   Future<ActivityCompletionResult> completeActivity({
     required String userId,
     required String activityId,
@@ -107,6 +123,24 @@ class ActivityService {
       final userDocRef = _firestore.collection('users').doc(userId);
       final completionDocRef =
           _userCompletionsCollection(userId).doc(completionDocId);
+
+      // Pre-fetch active challenges and achievements before the transaction
+      final challengesQuery = await _challengesCollection
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      final achievementsQuery = await _achievementsCollection
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      final previousCompletionsSnapshot =
+          await _userCompletionsCollection(userId).get();
+      final previousCompletionsCount = previousCompletionsSnapshot.docs.length;
+      final categoryCompletionsCount = previousCompletionsSnapshot.docs
+          .where((doc) =>
+              (doc.data()['category'] as String?)?.toLowerCase() ==
+              activityId.toLowerCase())
+          .length;
 
       return await _firestore.runTransaction<ActivityCompletionResult>(
         (transaction) async {
@@ -136,33 +170,172 @@ class ActivityService {
           final currentPoints =
               (userSnapshot.data()?['ecoPoints'] as num?)?.toInt() ?? 0;
 
-          // 4. Calculate new points and derived level
-          final pointsToAward = activity.points;
-          final newTotalPoints = currentPoints + pointsToAward;
-          final newLevel = LevelCalculator.calculateLevel(newTotalPoints);
+          // 4. Calculate initial activity points
+          final basePointsAwarded = activity.points;
+          int totalBonusPoints = 0;
+          int newlyCompletedChallenges = 0;
 
-          // 5. Create completion record
+          // 5. Create activity completion record
           final completionRecord = ActivityCompletionModel(
             id: completionDocId,
             activityId: activity.id,
             userId: userId,
             activityTitle: activity.title,
             category: activity.category,
-            pointsAwarded: pointsToAward,
+            pointsAwarded: basePointsAwarded,
             completedAt: now,
             completionDate: dateKey,
           );
 
           transaction.set(completionDocRef, completionRecord.toMap());
 
-          // 6. Atomically update user profile points and level
+          // 6. Process ongoing challenges matching this activity
+          for (final challengeDoc in challengesQuery.docs) {
+            final challengeData = challengeDoc.data();
+            final challengeId = challengeDoc.id;
+            final type = challengeData['type'] as String? ?? 'activity_count';
+            final target = (challengeData['target'] as num?)?.toInt() ?? 1;
+            final targetCategory = challengeData['targetCategory'] as String?;
+            final rewardPoints =
+                (challengeData['rewardPoints'] as num?)?.toInt() ?? 0;
+
+            final startDate = (challengeData['startDate'] is Timestamp)
+                ? (challengeData['startDate'] as Timestamp).toDate()
+                : now;
+            final endDate = (challengeData['endDate'] is Timestamp)
+                ? (challengeData['endDate'] as Timestamp).toDate()
+                : now.add(const Duration(days: 30));
+
+            // Only process if within valid date window
+            if (now.isBefore(startDate) || now.isAfter(endDate)) {
+              continue;
+            }
+
+            // Check if criteria matches
+            bool isMatching = false;
+            if (type == 'activity_count') {
+              isMatching = true;
+            } else if (type == 'category_activity') {
+              isMatching = targetCategory == null ||
+                  activity.category.toLowerCase() ==
+                      targetCategory.toLowerCase();
+            }
+
+            if (!isMatching) continue;
+
+            // Read user's progress for this challenge
+            final progressDocRef =
+                _userChallengeProgressCollection(userId).doc(challengeId);
+            final progressSnapshot = await transaction.get(progressDocRef);
+
+            final currentProgress = (progressSnapshot.data()?['progress'] as num?)
+                    ?.toInt() ??
+                0;
+            final isAlreadyClaimed =
+                progressSnapshot.data()?['rewardClaimed'] as bool? ?? false;
+
+            final newProgress = currentProgress + 1;
+            final isTargetReached = newProgress >= target;
+
+            if (isTargetReached && !isAlreadyClaimed) {
+              totalBonusPoints += rewardPoints;
+              newlyCompletedChallenges++;
+              transaction.set(
+                progressDocRef,
+                {
+                  'challengeId': challengeId,
+                  'userId': userId,
+                  'progress': newProgress,
+                  'target': target,
+                  'status': 'completed',
+                  'startedAt': progressSnapshot.exists
+                      ? (progressSnapshot.data()?['startedAt'] ??
+                          Timestamp.fromDate(now))
+                      : Timestamp.fromDate(now),
+                  'completedAt': Timestamp.fromDate(now),
+                  'rewardClaimed': true,
+                },
+                SetOptions(merge: true),
+              );
+            } else if (!isAlreadyClaimed) {
+              transaction.set(
+                progressDocRef,
+                {
+                  'challengeId': challengeId,
+                  'userId': userId,
+                  'progress': newProgress,
+                  'target': target,
+                  'status': 'in_progress',
+                  'startedAt': progressSnapshot.exists
+                      ? (progressSnapshot.data()?['startedAt'] ??
+                          Timestamp.fromDate(now))
+                      : Timestamp.fromDate(now),
+                  'rewardClaimed': false,
+                },
+                SetOptions(merge: true),
+              );
+            }
+          }
+
+          // 7. Update user profile points and derived level
+          final finalAwardedPoints = basePointsAwarded + totalBonusPoints;
+          final newTotalPoints = currentPoints + finalAwardedPoints;
+          final newLevel = LevelCalculator.calculateLevel(newTotalPoints);
+
           transaction.update(userDocRef, {
             'ecoPoints': newTotalPoints,
             'level': newLevel,
           });
 
+          // 8. Evaluate eligible achievements atomically
+          final totalUserCompletions = previousCompletionsCount + 1;
+          final totalCategoryCompletions = categoryCompletionsCount + 1;
+
+          for (final achievementDoc in achievementsQuery.docs) {
+            final aData = achievementDoc.data();
+            final achievementId = achievementDoc.id;
+            final reqType =
+                aData['requirementType'] as String? ?? 'activity_count';
+            final reqVal = (aData['requirementValue'] as num?)?.toInt() ?? 1;
+            final reqCategory = aData['requirementCategory'] as String?;
+
+            final userAchDocRef =
+                _userAchievementsCollection(userId).doc(achievementId);
+            final userAchSnapshot = await transaction.get(userAchDocRef);
+
+            // If not unlocked yet, check criteria
+            if (!userAchSnapshot.exists) {
+              bool isEligible = false;
+              if (reqType == 'first_activity') {
+                isEligible = totalUserCompletions >= 1;
+              } else if (reqType == 'activity_count') {
+                isEligible = totalUserCompletions >= reqVal;
+              } else if (reqType == 'points_reached') {
+                isEligible = newTotalPoints >= reqVal;
+              } else if (reqType == 'category_activity_count') {
+                if (reqCategory == null ||
+                    activity.category.toLowerCase() ==
+                        reqCategory.toLowerCase()) {
+                  isEligible = totalCategoryCompletions >= reqVal;
+                }
+              } else if (reqType == 'challenges_completed') {
+                isEligible = newlyCompletedChallenges >= reqVal;
+              }
+
+              if (isEligible) {
+                transaction.set(userAchDocRef, {
+                  'achievementId': achievementId,
+                  'userId': userId,
+                  'unlockedAt': Timestamp.fromDate(now),
+                  'status': 'unlocked',
+                  'rewardPointsAwarded': 0,
+                });
+              }
+            }
+          }
+
           return ActivityCompletionResult.success(
-            pointsAwarded: pointsToAward,
+            pointsAwarded: finalAwardedPoints,
             newTotalPoints: newTotalPoints,
             newLevel: newLevel,
           );
