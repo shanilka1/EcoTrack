@@ -44,6 +44,10 @@ class ActivityService {
           String userId) =>
       _firestore.collection('users').doc(userId).collection('achievements');
 
+  CollectionReference<Map<String, dynamic>> _userNotificationsCollection(
+          String userId) =>
+      _firestore.collection('users').doc(userId).collection('notifications');
+
   /// Fetches all active eco activities from Cloud Firestore
   Future<List<EcoActivityModel>> fetchActiveActivities() async {
     try {
@@ -189,6 +193,25 @@ class ActivityService {
 
           transaction.set(completionDocRef, completionRecord.toMap());
 
+          // Write activity completion notification
+          final notifActivityRef = _userNotificationsCollection(userId)
+              .doc('notif_act_$completionDocId');
+          transaction.set(
+            notifActivityRef,
+            {
+              'id': 'notif_act_$completionDocId',
+              'userId': userId,
+              'title': 'Activity Logged: ${activity.title}',
+              'message':
+                  'Great job! You earned +$basePointsAwarded eco points.',
+              'type': 'activity_completed',
+              'relatedId': activity.id,
+              'isRead': false,
+              'createdAt': Timestamp.fromDate(now),
+            },
+            SetOptions(merge: true),
+          );
+
           // 6. Process ongoing challenges matching this activity
           for (final challengeDoc in challengesQuery.docs) {
             final challengeData = challengeDoc.data();
@@ -257,6 +280,26 @@ class ActivityService {
                 },
                 SetOptions(merge: true),
               );
+
+              // Write Challenge Completion notification
+              final chalTitle = challengeData['title'] as String? ?? 'Community Challenge';
+              final notifChalRef = _userNotificationsCollection(userId)
+                  .doc('notif_chal_${challengeId}_completed');
+              transaction.set(
+                notifChalRef,
+                {
+                  'id': 'notif_chal_${challengeId}_completed',
+                  'userId': userId,
+                  'title': 'Challenge Completed: $chalTitle',
+                  'message':
+                      'Congratulations! You finished the challenge and earned +$rewardPoints bonus points.',
+                  'type': 'challenge_completed',
+                  'relatedId': challengeId,
+                  'isRead': false,
+                  'createdAt': Timestamp.fromDate(now),
+                },
+                SetOptions(merge: true),
+              );
             } else if (!isAlreadyClaimed) {
               transaction.set(
                 progressDocRef,
@@ -281,11 +324,33 @@ class ActivityService {
           final finalAwardedPoints = basePointsAwarded + totalBonusPoints;
           final newTotalPoints = currentPoints + finalAwardedPoints;
           final newLevel = LevelCalculator.calculateLevel(newTotalPoints);
+          final oldLevel = (userSnapshot.data()?['level'] as num?)?.toInt() ?? 1;
 
           transaction.update(userDocRef, {
             'ecoPoints': newTotalPoints,
             'level': newLevel,
           });
+
+          // Write Level Up notification if increased
+          if (newLevel > oldLevel) {
+            final notifLvlRef = _userNotificationsCollection(userId)
+                .doc('notif_lvl_$newLevel');
+            transaction.set(
+              notifLvlRef,
+              {
+                'id': 'notif_lvl_$newLevel',
+                'userId': userId,
+                'title': 'Level Up! Reached Level $newLevel',
+                'message':
+                    'Milestone unlocked! You have reached Level $newLevel (${LevelCalculator.getTierName(newLevel)}).',
+                'type': 'level_up',
+                'relatedId': null,
+                'isRead': false,
+                'createdAt': Timestamp.fromDate(now),
+              },
+              SetOptions(merge: true),
+            );
+          }
 
           // 8. Evaluate eligible achievements atomically
           final totalUserCompletions = previousCompletionsCount + 1;
@@ -330,6 +395,26 @@ class ActivityService {
                   'status': 'unlocked',
                   'rewardPointsAwarded': 0,
                 });
+
+                // Write Achievement notification
+                final aTitle = aData['title'] as String? ?? 'New Badge';
+                final notifAchRef = _userNotificationsCollection(userId)
+                    .doc('notif_ach_$achievementId');
+                transaction.set(
+                  notifAchRef,
+                  {
+                    'id': 'notif_ach_$achievementId',
+                    'userId': userId,
+                    'title': 'Badge Unlocked: $aTitle',
+                    'message':
+                        'Congratulations! You earned the "$aTitle" badge.',
+                    'type': 'achievement_unlocked',
+                    'relatedId': achievementId,
+                    'isRead': false,
+                    'createdAt': Timestamp.fromDate(now),
+                  },
+                  SetOptions(merge: true),
+                );
               }
             }
           }
