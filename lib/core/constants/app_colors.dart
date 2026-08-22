@@ -14,6 +14,9 @@ class AppColors {
   static const Color accent = Color(0xFF8BC34A); // Light Green / Lime
   static const Color energy = Color(0xFFFFB300); // Solar Amber / Points
   static const Color earth = Color(0xFF8D6E63); // Earth Brown
+  static const Color waste = Color(0xFF8D6E63); // Recycling / Waste
+  static const Color water = Color(0xFF0288D1); // Water Blue
+  static const Color transport = Color(0xFF00897B); // Clean Transport
 
   // Background & Surface Colors (Light)
   static const Color backgroundLight = Color(0xFFF7FAF7);

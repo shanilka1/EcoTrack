@@ -150,6 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    if (featureName == 'Progress' || featureName == 'Statistics') {
+      Navigator.of(context).pushNamed(AppRoutes.progress);
+      return;
+    }
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -207,10 +212,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Dashboard Header (Greeting + User Name from Firestore + Avatar/Logout)
+                // 1. Dashboard Header (Greeting + User Name from Firestore + Avatar/Profile/Settings/Logout)
                 DashboardHeader(
                   fullName: user.fullName,
                   onLogout: _handleLogout,
+                  onProfile: () => Navigator.of(context).pushNamed(
+                    AppRoutes.profile,
+                    arguments: user,
+                  ),
+                  onSettings: () => Navigator.of(context).pushNamed(
+                    AppRoutes.settings,
+                  ),
                 ),
                 SizedBox(height: isSmall ? 16 : 24),
 

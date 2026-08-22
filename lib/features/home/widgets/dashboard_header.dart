@@ -4,15 +4,19 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
 
-/// Professional Dashboard Header showing dynamic greeting, actual user name, and avatar
+/// Professional Dashboard Header showing dynamic greeting, actual user name, and avatar menu
 class DashboardHeader extends StatelessWidget {
   final String fullName;
   final VoidCallback onLogout;
+  final VoidCallback? onProfile;
+  final VoidCallback? onSettings;
 
   const DashboardHeader({
     super.key,
     required this.fullName,
     required this.onLogout,
+    this.onProfile,
+    this.onSettings,
   });
 
   /// Computes dynamic greeting based on current local time
@@ -81,10 +85,14 @@ class DashboardHeader extends StatelessWidget {
 
         const SizedBox(width: AppConstants.paddingM),
 
-        // User Avatar with Logout popup
+        // User Avatar with Profile/Settings/Logout popup
         PopupMenuButton<String>(
           onSelected: (value) {
-            if (value == 'logout') {
+            if (value == 'profile') {
+              onProfile?.call();
+            } else if (value == 'settings') {
+              onSettings?.call();
+            } else if (value == 'logout') {
               onLogout();
             }
           },
@@ -92,6 +100,47 @@ class DashboardHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppConstants.radiusM),
           ),
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'profile',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_outline_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                  SizedBox(width: AppConstants.paddingS),
+                  Text(
+                    'My Profile',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.settings_outlined,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                  SizedBox(width: AppConstants.paddingS),
+                  Text(
+                    'Settings',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(height: 1),
             const PopupMenuItem(
               value: 'logout',
               child: Row(
@@ -107,6 +156,7 @@ class DashboardHeader extends StatelessWidget {
                     style: TextStyle(
                       color: AppColors.error,
                       fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
                     ),
                   ),
                 ],

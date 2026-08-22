@@ -55,7 +55,7 @@ void main() {
       expect(find.text('No active challenges.'), findsOneWidget);
     });
 
-    testWidgets('Quick Action tap displays informative feature notice',
+    testWidgets('Quick Actions render correctly on Home Screen',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -63,15 +63,10 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Progress'));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text(
-          'Progress feature will be connected in a future development step.',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Activities'), findsOneWidget);
+      expect(find.text('Challenges'), findsOneWidget);
+      expect(find.text('Progress'), findsOneWidget);
+      expect(find.text('Badges'), findsOneWidget);
     });
 
     testWidgets('Renders with 0 overflow on small mobile screen (320x568)',

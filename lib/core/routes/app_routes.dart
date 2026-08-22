@@ -12,6 +12,13 @@ import '../../features/challenges/screens/challenges_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/leaderboard/screens/leaderboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
+import '../../features/profile/screens/about_screen.dart';
+import '../../features/profile/screens/change_password_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/legal_info_screen.dart';
+import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
+import '../../features/progress/screens/progress_screen.dart';
 import '../../features/rewards/screens/achievements_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
@@ -31,7 +38,14 @@ class AppRoutes {
   static const String challengeDetails = '/challenges/details';
   static const String leaderboard = '/leaderboard';
   static const String rewards = '/rewards';
+  static const String progress = '/progress';
   static const String profile = '/profile';
+  static const String editProfile = '/profile/edit';
+  static const String changePassword = '/profile/change-password';
+  static const String settings = '/settings';
+  static const String about = '/settings/about';
+  static const String privacyPolicy = '/settings/privacy';
+  static const String termsConditions = '/settings/terms';
 
   /// Generates routes dynamically based on RouteSettings
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -143,6 +157,60 @@ class AppRoutes {
       case leaderboard:
         return MaterialPageRoute(
           builder: (_) => const LeaderboardScreen(),
+          settings: settings,
+        );
+
+      case progress:
+        return MaterialPageRoute(
+          builder: (_) => const ProgressScreen(),
+          settings: settings,
+        );
+
+      case profile:
+        final user = settings.arguments is UserModel
+            ? settings.arguments as UserModel
+            : null;
+        return MaterialPageRoute(
+          builder: (_) => ProfileScreen(initialUser: user),
+          settings: settings,
+        );
+
+      case editProfile:
+        final user = settings.arguments is UserModel
+            ? settings.arguments as UserModel
+            : null;
+        return MaterialPageRoute(
+          builder: (_) => EditProfileScreen(initialUser: user),
+          settings: settings,
+        );
+
+      case changePassword:
+        return MaterialPageRoute(
+          builder: (_) => const ChangePasswordScreen(),
+          settings: settings,
+        );
+
+      case AppRoutes.settings:
+        return MaterialPageRoute(
+          builder: (_) => const SettingsScreen(),
+          settings: settings,
+        );
+
+      case about:
+        return MaterialPageRoute(
+          builder: (_) => const AboutScreen(),
+          settings: settings,
+        );
+
+      case privacyPolicy:
+        return MaterialPageRoute(
+          builder: (_) => LegalInfoScreen.privacyPolicy(),
+          settings: settings,
+        );
+
+      case termsConditions:
+        return MaterialPageRoute(
+          builder: (_) => LegalInfoScreen.termsOfService(),
           settings: settings,
         );
 

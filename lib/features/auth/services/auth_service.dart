@@ -151,6 +151,34 @@ class AuthService {
     }
   }
 
+  /// Changes the authenticated user's password with re-authentication
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null || user.email == null) {
+      throw const AuthException('No authenticated user found.');
+    }
+
+    try {
+      // Re-authenticate user first for security
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException.fromFirebaseAuthException(e);
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw AuthException('Failed to change password: $e');
+    }
+  }
+
   /// Retrieves the current authenticated user profile
   Future<UserModel?> getCurrentUserProfile() async {
     try {

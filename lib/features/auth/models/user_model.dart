@@ -5,6 +5,7 @@ class UserModel {
   final String uid;
   final String fullName;
   final String email;
+  final String? photoUrl;
   final String role;
   final int ecoPoints;
   final int level;
@@ -14,6 +15,7 @@ class UserModel {
     required this.uid,
     required this.fullName,
     required this.email,
+    this.photoUrl,
     this.role = 'user',
     this.ecoPoints = 0,
     this.level = 1,
@@ -25,11 +27,13 @@ class UserModel {
     required String uid,
     required String fullName,
     required String email,
+    String? photoUrl,
   }) {
     return UserModel(
       uid: uid,
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
+      photoUrl: photoUrl,
       role: 'user',
       ecoPoints: 0,
       level: 1,
@@ -43,6 +47,7 @@ class UserModel {
       'uid': uid,
       'fullName': fullName,
       'email': email,
+      'photoUrl': photoUrl,
       'role': role,
       'ecoPoints': ecoPoints,
       'level': level,
@@ -69,6 +74,7 @@ class UserModel {
       uid: map['uid'] as String? ?? documentId ?? '',
       fullName: map['fullName'] as String? ?? '',
       email: map['email'] as String? ?? '',
+      photoUrl: map['photoUrl'] as String?,
       role: map['role'] as String? ?? 'user',
       ecoPoints: (map['ecoPoints'] as num?)?.toInt() ?? 0,
       level: (map['level'] as num?)?.toInt() ?? 1,
@@ -77,7 +83,8 @@ class UserModel {
   }
 
   /// Creates a UserModel from a Firestore DocumentSnapshot
-  factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot) {
+  factory UserModel.fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data() ?? {};
     return UserModel.fromMap(data, documentId: snapshot.id);
   }
@@ -87,6 +94,7 @@ class UserModel {
     String? uid,
     String? fullName,
     String? email,
+    String? photoUrl,
     String? role,
     int? ecoPoints,
     int? level,
@@ -96,6 +104,7 @@ class UserModel {
       uid: uid ?? this.uid,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
       role: role ?? this.role,
       ecoPoints: ecoPoints ?? this.ecoPoints,
       level: level ?? this.level,
@@ -110,6 +119,7 @@ class UserModel {
         other.uid == uid &&
         other.fullName == fullName &&
         other.email == email &&
+        other.photoUrl == photoUrl &&
         other.role == role &&
         other.ecoPoints == ecoPoints &&
         other.level == level &&
@@ -122,6 +132,7 @@ class UserModel {
       uid,
       fullName,
       email,
+      photoUrl,
       role,
       ecoPoints,
       level,
