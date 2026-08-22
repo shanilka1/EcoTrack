@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Rules for Users Collection
+    match /users/{userId} {
+      // Any authenticated user can read profiles (for future leaderboard/social features)
+      allow read: if isAuthenticated();
+
+      // Only the authenticated user can create their own document with default values
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.role == 'user'
+                    && request.resource.data.ecoPoints == 0
+                    && request.resource.data.level == 1;
+
+      // Users can only update non-sensitive profile fields (cannot alter role, points, or level directly)
+      allow update: if isOwner(userId)
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.ecoPoints == resource.data.ecoPoints
+                    && request.resource.data.level == resource.data.level
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Deletions are forbidden from client
+      allow delete: if false;
+    }
+  }
+}

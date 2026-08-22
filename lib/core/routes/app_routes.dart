@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../features/auth/models/user_model.dart';
+import '../../features/auth/screens/auth_placeholder_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -44,6 +46,15 @@ class AppRoutes {
       case register:
         return MaterialPageRoute(
           builder: (_) => const RegisterScreen(),
+          settings: settings,
+        );
+
+      case home:
+        final user = settings.arguments is UserModel
+            ? settings.arguments as UserModel
+            : null;
+        return MaterialPageRoute(
+          builder: (_) => AuthPlaceholderScreen(user: user),
           settings: settings,
         );
 

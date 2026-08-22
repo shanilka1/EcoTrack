@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/eco_logo.dart';
+import '../services/auth_service.dart';
 
-/// Clean, responsive, and validated Login Screen for EcoTrack
+/// Clean, responsive, validated, and Firebase-connected Login Screen for EcoTrack
 class LoginScreen extends StatefulWidget {
-  /// Optional login submission callback for future auth integration
+  /// Optional auth service override (useful for testing or dependency injection)
+  final AuthService? authService;
+
+  /// Optional login submission callback
   final void Function(String email, String password)? onLoginSubmitted;
 
   /// Optional navigation callback for register screen
@@ -19,6 +24,7 @@ class LoginScreen extends StatefulWidget {
 
   const LoginScreen({
     super.key,
+    this.authService,
     this.onLoginSubmitted,
     this.onNavigateToRegister,
   });
@@ -33,8 +39,17 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
 
+  late final AuthService _authService;
+
   bool _obscurePassword = true;
   bool _submittedOnce = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = widget.authService ?? AuthService();
+  }
 
   @override
   void dispose() {
@@ -50,42 +65,190 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     setState(() {
       _submittedOnce = true;
     });
 
-    if (_formKey.currentState?.validate() ?? false) {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
 
-      // Integration point for future Firebase Auth step
-      if (widget.onLoginSubmitted != null) {
-        widget.onLoginSubmitted!(email, password);
-      } else {
-        // Form is valid: show placeholder notice without pretending authentication succeeded
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Input validation passed. Authentication will be connected in the Firebase step.',
-            ),
-            duration: Duration(seconds: 2),
-          ),
-        );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (widget.onLoginSubmitted != null) {
+      widget.onLoginSubmitted!(email, password);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = await _authService.loginWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome back, ${user.fullName}!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      // Navigate to authenticated root
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.home,
+        arguments: user,
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar('Login failed. Please verify your credentials.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
   void _handleForgotPassword() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Password recovery will be connected in a future development step.',
-        ),
-        duration: Duration(seconds: 2),
-      ),
+    final resetEmailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final resetFormKey = GlobalKey<FormState>();
+    bool isResetting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+
+            return AlertDialog(
+              backgroundColor:
+                  isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.lock_reset_rounded,
+                    color: isDark ? AppColors.primaryLight : AppColors.primary,
+                  ),
+                  const SizedBox(width: AppConstants.paddingS),
+                  const Text('Reset Password'),
+                ],
+              ),
+              content: Form(
+                key: resetFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your email address and we will send you a password reset link.',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: AppConstants.paddingM),
+                    CustomTextField(
+                      label: 'Email',
+                      hintText: 'Enter your account email',
+                      controller: resetEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: Validators.validateEmail,
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isResetting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isResetting
+                      ? null
+                      : () async {
+                          if (!resetFormKey.currentState!.validate()) {
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isResetting = true;
+                          });
+
+                          try {
+                            await _authService.sendPasswordResetEmail(
+                              resetEmailController.text.trim(),
+                            );
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
+
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Password reset link has been sent to your email.',
+                                ),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          } on AuthException catch (e) {
+                            setDialogState(() {
+                              isResetting = false;
+                            });
+                            if (!mounted) return;
+                            _showErrorSnackBar(e.message);
+                          } catch (e) {
+                            setDialogState(() {
+                              isResetting = false;
+                            });
+                            if (!mounted) return;
+                            _showErrorSnackBar(
+                              'Failed to send password reset email.',
+                            );
+                          }
+                        },
+                  child: isResetting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Send Reset Link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -105,9 +268,19 @@ class _LoginScreenState extends State<LoginScreen> {
     if (widget.onNavigateToRegister != null) {
       widget.onNavigateToRegister!();
     } else {
-      // Prepared navigation target toward Register screen
       Navigator.of(context).pushNamed(AppRoutes.register);
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -250,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: _handleForgotPassword,
+                        onPressed: _isLoading ? null : _handleForgotPassword,
                         style: TextButton.styleFrom(
                           foregroundColor: isDark
                               ? AppColors.primaryLight
@@ -275,7 +448,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     CustomButton(
                       text: 'Sign In',
                       icon: Icons.login_rounded,
-                      onPressed: _handleLogin,
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _handleLogin,
                     ),
                     const SizedBox(height: AppConstants.paddingL),
 
@@ -328,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? AppColors.textPrimaryDark
                           : AppColors.textPrimaryLight,
                       leadingWidget: _buildGoogleIcon(),
-                      onPressed: _handleGoogleSignIn,
+                      onPressed: _isLoading ? null : _handleGoogleSignIn,
                     ),
                     SizedBox(height: isSmall ? 24 : 32),
 
@@ -347,7 +521,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: _handleSignUp,
+                          onTap: _isLoading ? null : _handleSignUp,
                           child: Text(
                             'Sign Up',
                             style: TextStyle(

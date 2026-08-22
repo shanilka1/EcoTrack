@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/eco_logo.dart';
+import '../services/auth_service.dart';
 
-/// Clean, responsive, and validated Register / Create Account Screen for EcoTrack
+/// Clean, responsive, validated, and Firebase-connected Register Screen for EcoTrack
 class RegisterScreen extends StatefulWidget {
-  /// Optional registration submission callback for future auth integration
+  /// Optional auth service override (useful for testing or dependency injection)
+  final AuthService? authService;
+
+  /// Optional registration submission callback
   final void Function(String name, String email, String password)?
       onRegisterSubmitted;
 
@@ -20,6 +25,7 @@ class RegisterScreen extends StatefulWidget {
 
   const RegisterScreen({
     super.key,
+    this.authService,
     this.onRegisterSubmitted,
     this.onNavigateToLogin,
   });
@@ -39,11 +45,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordFocusNode = FocusNode();
   final _confirmPasswordFocusNode = FocusNode();
 
+  late final AuthService _authService;
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
   bool _termsError = false;
   bool _submittedOnce = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = widget.authService ?? AuthService();
+  }
 
   @override
   void dispose() {
@@ -69,7 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     setState(() {
       _submittedOnce = true;
       _termsError = !_agreeToTerms;
@@ -77,25 +92,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final isFormValid = _formKey.currentState?.validate() ?? false;
 
-    if (isFormValid && _agreeToTerms) {
-      final name = _nameController.text.trim();
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
+    if (!isFormValid || !_agreeToTerms) {
+      return;
+    }
 
-      // Integration point for future Firebase Auth step
-      if (widget.onRegisterSubmitted != null) {
-        widget.onRegisterSubmitted!(name, email, password);
-      } else {
-        // Form is valid: show placeholder notice without pretending registration succeeded
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Input validation passed. Account creation will be connected in the Firebase step.',
-            ),
-            duration: Duration(seconds: 2),
-          ),
-        );
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (widget.onRegisterSubmitted != null) {
+      widget.onRegisterSubmitted!(name, email, password);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = await _authService.registerWithEmailAndPassword(
+        name: name,
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Account created successfully! Welcome, ${user.fullName}'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      // Navigate to authenticated root
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.home,
+        (route) => false,
+        arguments: user,
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar('Registration failed. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -134,6 +180,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       }
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -344,27 +401,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            onChanged: (bool? value) {
-                              setState(() {
-                                _agreeToTerms = value ?? false;
-                                if (_agreeToTerms) {
-                                  _termsError = false;
-                                }
-                              });
-                            },
+                            onChanged: _isLoading
+                                ? null
+                                : (bool? value) {
+                                    setState(() {
+                                      _agreeToTerms = value ?? false;
+                                      if (_agreeToTerms) {
+                                        _termsError = false;
+                                      }
+                                    });
+                                  },
                           ),
                         ),
                         const SizedBox(width: AppConstants.paddingS + 2),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _agreeToTerms = !_agreeToTerms;
-                                if (_agreeToTerms) {
-                                  _termsError = false;
-                                }
-                              });
-                            },
+                            onTap: _isLoading
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _agreeToTerms = !_agreeToTerms;
+                                      if (_agreeToTerms) {
+                                        _termsError = false;
+                                      }
+                                    });
+                                  },
                             child: Wrap(
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
@@ -419,7 +480,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     CustomButton(
                       text: 'Create Account',
                       icon: Icons.arrow_forward_rounded,
-                      onPressed: _handleRegister,
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _handleRegister,
                     ),
                     const SizedBox(height: AppConstants.paddingL),
 
@@ -472,7 +534,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? AppColors.textPrimaryDark
                           : AppColors.textPrimaryLight,
                       leadingWidget: _buildGoogleIcon(),
-                      onPressed: _handleGoogleSignUp,
+                      onPressed: _isLoading ? null : _handleGoogleSignUp,
                     ),
                     SizedBox(height: isSmall ? 20 : 28),
 
@@ -491,7 +553,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: _handleSignIn,
+                          onTap: _isLoading ? null : _handleSignIn,
                           child: Text(
                             'Sign In',
                             style: TextStyle(
